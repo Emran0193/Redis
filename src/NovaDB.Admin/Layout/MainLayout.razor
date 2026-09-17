@@ -1,0 +1,146 @@
+@inherits LayoutComponentBase
+@inject ThemeState Theme
+@implements IDisposable
+
+<MudThemeProvider @bind-IsDarkMode="Theme.IsDarkMode" Theme="_theme" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="0" Dense="true" Class="app-bar">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@ToggleDrawer" />
+        <div class="brand-mark">
+            <span class="brand-glyph">N</span>
+            <MudText Typo="Typo.h6" Class="brand-text">NovaDB</MudText>
+        </div>
+        <MudSpacer />
+        <MudAutocomplete T="string" Label="Jump to…" SearchFunc="SearchPages" ValueChanged="NavigateTo"
+                         Variant="Variant.Outlined" Dense="true" Class="command-palette"
+                         Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+        <MudIconButton Icon="@(Theme.IsDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+                       Color="Color.Inherit" OnClick="Theme.Toggle" />
+        <form method="post" action="/account/logout">
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Text" Color="Color.Inherit">Logout</MudButton>
+        </form>
+    </MudAppBar>
+    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="0" Class="app-drawer">
+        <div class="drawer-brand">
+            <MudText Typo="Typo.overline">Operations</MudText>
+            <MudText Typo="Typo.subtitle2">Cache control plane</MudText>
+        </div>
+        <MudNavMenu>
+            <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">Dashboard</MudNavLink>
+            <MudNavLink Href="/keys" Icon="@Icons.Material.Filled.Key">Keys</MudNavLink>
+            <MudNavLink Href="/clients" Icon="@Icons.Material.Filled.People">Clients</MudNavLink>
+            <MudNavLink Href="/memory" Icon="@Icons.Material.Filled.Memory">Memory</MudNavLink>
+            <MudNavLink Href="/persistence" Icon="@Icons.Material.Filled.Storage">Persistence</MudNavLink>
+            <MudNavLink Href="/pubsub" Icon="@Icons.Material.Filled.Campaign">PubSub</MudNavLink>
+            <MudNavGroup Title="Observe" Expanded="true">
+                <MudNavLink Href="/metrics" Icon="@Icons.Material.Filled.ShowChart">Metrics</MudNavLink>
+                <MudNavLink Href="/logs" Icon="@Icons.Material.Filled.ListAlt">Logs</MudNavLink>
+                <MudNavLink Href="/health" Icon="@Icons.Material.Filled.Favorite">Health</MudNavLink>
+            </MudNavGroup>
+            <MudNavLink Href="/settings" Icon="@Icons.Material.Filled.Settings">Settings</MudNavLink>
+        </MudNavMenu>
+    </MudDrawer>
+    <MudMainContent Class="main-content">
+        @Body
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private bool _drawerOpen = true;
+    private readonly MudTheme _theme = CreateTheme();
+    private static readonly (string Path, string Label)[] Pages =
+    [
+        ("/", "Dashboard"),
+        ("/keys", "Keys"),
+        ("/clients", "Clients"),
+        ("/memory", "Memory"),
+        ("/persistence", "Persistence"),
+        ("/pubsub", "PubSub"),
+        ("/metrics", "Metrics"),
+        ("/logs", "Logs"),
+        ("/health", "Health"),
+        ("/settings", "Settings")
+    ];
+
+    protected override void OnInitialized() => Theme.Changed += StateHasChanged;
+    public void Dispose() => Theme.Changed -= StateHasChanged;
+    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+
+    private Task<IEnumerable<string>> SearchPages(string value, CancellationToken ct)
+    {
+        IEnumerable<(string Path, string Label)> q = Pages;
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            q = Pages.Where(p =>
+                p.Path.Contains(value, StringComparison.OrdinalIgnoreCase) ||
+                p.Label.Contains(value, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return Task.FromResult(q.Select(p => $"{p.Label} — {p.Path}"));
+    }
+
+    private void NavigateTo(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return;
+        var path = value.Contains('—') ? value.Split('—')[^1].Trim() : value.Trim();
+        Navigation.NavigateTo(path);
+    }
+
+    private static MudTheme CreateTheme() => new()
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary = "#0F766E",
+            Secondary = "#0E7490",
+            AppbarBackground = "#F4F7F6",
+            AppbarText = "#134E4A",
+            Background = "#EEF3F1",
+            Surface = "#FFFFFF",
+            DrawerBackground = "#F7FAF9",
+            DrawerText = "#134E4A",
+            TextPrimary = "#134E4A",
+            TextSecondary = "#5B6B66"
+        },
+        PaletteDark = new PaletteDark
+        {
+            Primary = "#2DD4BF",
+            Secondary = "#22D3EE",
+            AppbarBackground = "#0B1412",
+            AppbarText = "#E7F5F1",
+            Background = "#0A1210",
+            Surface = "#121C19",
+            DrawerBackground = "#0D1614",
+            DrawerText = "#D7E8E2",
+            TextPrimary = "#E7F5F1",
+            TextSecondary = "#9BB0A8",
+            LinesDefault = "#1F2E2A"
+        },
+        Typography = new Typography
+        {
+            Default = new DefaultTypography
+            {
+                FontFamily = ["IBM Plex Sans", "Segoe UI", "sans-serif"]
+            },
+            H4 = new H4Typography
+            {
+                FontFamily = ["IBM Plex Sans", "Segoe UI", "sans-serif"],
+                FontWeight = "600"
+            },
+            H6 = new H6Typography
+            {
+                FontFamily = ["IBM Plex Sans", "Segoe UI", "sans-serif"],
+                FontWeight = "600"
+            }
+        },
+        LayoutProperties = new LayoutProperties
+        {
+            DefaultBorderRadius = "10px"
+        }
+    };
+
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+}

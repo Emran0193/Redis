@@ -1,0 +1,214 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+}
+
+.app-bar {
+  border-bottom: 1px solid rgba(45, 212, 191, 0.12);
+  backdrop-filter: blur(10px);
+}
+
+.brand-mark {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.brand-glyph {
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 0.45rem;
+  display: inline-grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #042f2e;
+  background: linear-gradient(135deg, #2dd4bf, #22d3ee);
+}
+
+.brand-glyph.large {
+  width: 2.6rem;
+  height: 2.6rem;
+  font-size: 1.25rem;
+}
+
+.brand-text {
+  letter-spacing: 0.02em;
+  font-weight: 600 !important;
+}
+
+.command-palette {
+  max-width: 320px;
+  width: 100%;
+}
+
+.app-drawer {
+  border-right: 1px solid rgba(45, 212, 191, 0.1);
+}
+
+.drawer-brand {
+  padding: 1.1rem 1rem 0.75rem;
+}
+
+.main-content {
+  padding: 1.25rem 1.5rem 2rem;
+  min-height: calc(100vh - 48px);
+  background:
+    radial-gradient(900px 420px at 8% -10%, rgba(45, 212, 191, 0.09), transparent 55%),
+    radial-gradient(700px 380px at 100% 0%, rgba(34, 211, 238, 0.06), transparent 50%);
+}
+
+.dash-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.dash-title {
+  margin: 0 !important;
+}
+
+.dash-subtitle {
+  opacity: 0.72;
+}
+
+.metric-tile {
+  border-radius: 12px;
+  padding: 1rem 1.05rem 0.95rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(18, 28, 25, 0.72);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  min-height: 108px;
+  transition: transform 160ms ease, border-color 160ms ease;
+}
+
+.metric-tile:hover {
+  transform: translateY(-2px);
+  border-color: rgba(45, 212, 191, 0.28);
+}
+
+.metric-tile-top {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.55rem;
+}
+
+.metric-tile-icon {
+  opacity: 0.9;
+}
+
+.metric-tile-label {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.75;
+}
+
+.metric-tile-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600 !important;
+  margin: 0 !important;
+}
+
+.accent-teal { border-left: 3px solid #2dd4bf; }
+.accent-cyan { border-left: 3px solid #22d3ee; }
+.accent-amber { border-left: 3px solid #fbbf24; }
+.accent-green { border-left: 3px solid #4ade80; }
+.accent-rose { border-left: 3px solid #fb7185; }
+.accent-orange { border-left: 3px solid #fb923c; }
+.accent-violet { border-left: 3px solid #a78bfa; }
+.accent-slate { border-left: 3px solid #94a3b8; }
+
+.chart-panel {
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(18, 28, 25, 0.72);
+  padding: 1rem 1.1rem 0.5rem;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+}
+
+.chart-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.35rem;
+}
+
+.chart-empty {
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.8;
+}
+
+.login-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background:
+    radial-gradient(700px 380px at 20% 10%, rgba(45, 212, 191, 0.18), transparent 55%),
+    radial-gradient(620px 360px at 90% 80%, rgba(14, 116, 144, 0.22), transparent 50%),
+    #07110f;
+}
+
+.login-panel {
+  width: min(420px, 100%);
+  border-radius: 16px;
+  padding: 1.75rem 1.6rem 1.6rem;
+  border: 1px solid rgba(45, 212, 191, 0.18);
+  background: rgba(12, 22, 20, 0.92);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+
+.login-tagline,
+.login-hint {
+  opacity: 0.78;
+}
+
+.login-form code,
+.login-hint code {
+  color: #5eead4;
+}
+
+.login-label {
+  display: block;
+  margin: 0.75rem 0 0.35rem;
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+
+.login-input {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 10px;
+  border: 1px solid rgba(45, 212, 191, 0.28);
+  background: rgba(7, 17, 15, 0.85);
+  color: #e7f5f1;
+  padding: 0.7rem 0.85rem;
+  font: inherit;
+}
+
+.login-input:focus {
+  outline: 2px solid rgba(45, 212, 191, 0.45);
+  outline-offset: 1px;
+}
+
+@media (max-width: 600px) {
+  .command-palette { display: none; }
+  .main-content { padding: 1rem; }
+  .dash-header { flex-direction: column; }
+}

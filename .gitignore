@@ -1,0 +1,59 @@
+## .NET
+bin/
+obj/
+[Bb]uild/
+[Ll]og/
+[Ll]ogs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## Visual Studio / VS Code / Rider
+.vs/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+.idea/
+*.DotSettings.user
+
+## Aspire / local runtime
+.aspire/
+**/App_Data/
+*.db
+*.db-shm
+*.db-wal
+
+## NovaDB local persistence artifacts
+src/NovaDB.Server/data/
+*.aof
+*.novdb
+*.novdb.*
+
+## OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+## Secrets / local env
+.env
+.env.*
+!.env.example
+**/appsettings.*.local.json
+**/secrets.json
+*.pfx
+*.key
+
+## Test / coverage
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+nupkg/
+*.nupkg

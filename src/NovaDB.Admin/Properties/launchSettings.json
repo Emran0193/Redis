@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "NovaDB.Admin": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:59255;http://localhost:59256"
+    }
+  }
+}

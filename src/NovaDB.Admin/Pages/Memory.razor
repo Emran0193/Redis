@@ -1,0 +1,28 @@
+@page "/memory"
+@attribute [Authorize(Policy = AdminPolicies.ReadOnly)]
+@inject MetricsService.MetricsServiceClient Metrics
+
+<MudText Typo="Typo.h4" Class="mb-4">Memory</MudText>
+
+@if (_snap is not null)
+{
+    <MudPaper Class="pa-4">
+        <MudText>Estimated dataset: @_snap.MemoryBytes bytes</MudText>
+        <MudText>Configured limit: @(_snap.MemoryLimitBytes == 0 ? "unlimited" : _snap.MemoryLimitBytes.ToString())</MudText>
+        <MudText>Keys: @_snap.KeyCount</MudText>
+        <MudText>Evictions: @_snap.Evictions</MudText>
+        <MudProgressLinear Class="mt-3" Color="Color.Primary" Value="@Progress" />
+        <MudText Typo="Typo.caption" Class="mt-2">GC/LOH flame views are Phase 2. Runtime meters export via OTEL to Aspire.</MudText>
+    </MudPaper>
+}
+
+@code {
+    private MetricsSnapshot? _snap;
+    private double Progress =>
+        _snap is null || _snap.MemoryLimitBytes <= 0
+            ? 0
+            : Math.Min(100, 100.0 * _snap.MemoryBytes / _snap.MemoryLimitBytes);
+
+    protected override async Task OnInitializedAsync()
+        => _snap = await Metrics.GetSnapshotAsync(new Empty());
+}

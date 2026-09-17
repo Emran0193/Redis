@@ -1,0 +1,65 @@
+@page "/settings"
+@attribute [Authorize(Policy = AdminPolicies.ReadOnly)]
+@inject ConfigService.ConfigServiceClient Config
+@inject IAdminAuditLog Audit
+@inject AuthenticationStateProvider Auth
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h4" Class="mb-4">Configuration</MudText>
+
+@if (_config is not null)
+{
+    <MudPaper Class="pa-4 mb-4">
+        <MudText>Memory limit: @_config.MemoryLimitBytes</MudText>
+        <MudText>Eviction: @_config.EvictionPolicy</MudText>
+        <MudText>AOF: @_config.AofEnabled (@_config.AofFlushPolicy)</MudText>
+        <MudText>Max connections: @_config.MaxConnections</MudText>
+        <MudText>Idle timeout: @_config.IdleTimeout</MudText>
+        <MudText>Shards: @_config.ShardCount</MudText>
+    </MudPaper>
+
+    <AuthorizeView Policy="@AdminPolicies.Admin">
+        <MudStack Spacing="2" Class="mb-4" Style="max-width:480px">
+            <MudNumericField @bind-Value="_memoryLimit" Label="maxmemory (bytes, 0=unlimited)" Variant="Variant.Outlined" />
+            <MudSelect T="string" @bind-Value="_policy" Label="maxmemory-policy" Variant="Variant.Outlined">
+                <MudSelectItem Value="@("noeviction")">noeviction</MudSelectItem>
+                <MudSelectItem Value="@("allkeys-lru")">allkeys-lru</MudSelectItem>
+                <MudSelectItem Value="@("allkeys-lfu")">allkeys-lfu</MudSelectItem>
+                <MudSelectItem Value="@("volatile-lru")">volatile-lru</MudSelectItem>
+                <MudSelectItem Value="@("volatile-ttl")">volatile-ttl</MudSelectItem>
+            </MudSelect>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Apply</MudButton>
+        </MudStack>
+    </AuthorizeView>
+}
+
+<MudText Typo="Typo.h6" Class="mt-4">Audit trail</MudText>
+<MudList T="string" Dense="true">
+    @foreach (var e in Audit.Recent(50))
+    {
+        <MudListItem>@e.Utc.ToString("u") · @e.Actor · @e.Action · @e.Detail</MudListItem>
+    }
+</MudList>
+
+@code {
+    private ConfigSnapshot? _config;
+    private long _memoryLimit;
+    private string _policy = "allkeys-lru";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _config = await Config.GetConfigAsync(new Empty());
+        _memoryLimit = _config.MemoryLimitBytes;
+        _policy = _config.EvictionPolicy;
+    }
+
+    private async Task SaveAsync()
+    {
+        var user = (await Auth.GetAuthenticationStateAsync()).User.Identity?.Name ?? "unknown";
+        await Config.SetConfigAsync(new SetConfigRequest { Key = "maxmemory", Value = _memoryLimit.ToString(), Actor = user });
+        await Config.SetConfigAsync(new SetConfigRequest { Key = "maxmemory-policy", Value = _policy, Actor = user });
+        Audit.Record(user, "SetConfig", $"maxmemory={_memoryLimit}; policy={_policy}");
+        Snackbar.Add("Configuration updated", Severity.Success);
+        _config = await Config.GetConfigAsync(new Empty());
+    }
+}

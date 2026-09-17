@@ -1,0 +1,43 @@
+@page "/pubsub"
+@attribute [Authorize(Policy = AdminPolicies.ReadOnly)]
+@inject PubSubService.PubSubServiceClient PubSubApi
+@inject IAdminAuditLog Audit
+@inject AuthenticationStateProvider Auth
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h4" Class="mb-4">Pub/Sub</MudText>
+
+@if (_stats is not null)
+{
+    <MudPaper Class="pa-4 mb-3">
+        <MudText>Tracked channels: @_stats.TrackedChannels</MudText>
+        <MudText Typo="Typo.caption">@_stats.Note</MudText>
+    </MudPaper>
+}
+
+<AuthorizeView Policy="@AdminPolicies.Operator">
+    <MudStack Spacing="2" Style="max-width:480px">
+        <MudTextField @bind-Value="_channel" Label="Channel" Variant="Variant.Outlined" />
+        <MudTextField @bind-Value="_message" Label="Message" Variant="Variant.Outlined" />
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="PublishAsync">Publish test message</MudButton>
+    </MudStack>
+</AuthorizeView>
+
+@code {
+    private PubSubStats? _stats;
+    private string _channel = "novadb:admin";
+    private string _message = "hello";
+
+    protected override async Task OnInitializedAsync()
+        => _stats = await PubSubApi.GetStatsAsync(new Empty());
+
+    private async Task PublishAsync()
+    {
+        var user = (await Auth.GetAuthenticationStateAsync()).User.Identity?.Name ?? "unknown";
+        var result = await PubSubApi.PublishAsync(new PublishRequest { Channel = _channel, Message = _message });
+        Audit.Record(user, "Publish", $"{_channel}: {result.Message}");
+        Snackbar.Add(result.Message, Severity.Info);
+        _stats = await PubSubApi.GetStatsAsync(new Empty());
+    }
+}
+

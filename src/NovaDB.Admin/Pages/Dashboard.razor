@@ -1,0 +1,142 @@
+@page "/"
+@attribute [Authorize(Policy = AdminPolicies.ReadOnly)]
+@inject NavigationManager Nav
+@inject MetricsService.MetricsServiceClient MetricsApi
+@implements IAsyncDisposable
+
+<div class="dash-header">
+    <div>
+        <MudText Typo="Typo.h4" Class="dash-title">Dashboard</MudText>
+        <MudText Typo="Typo.body2" Class="dash-subtitle">Live NovaDB cache posture</MudText>
+    </div>
+    <MudChip T="string" Color="@(_connected ? Color.Success : Color.Warning)" Variant="Variant.Filled" Size="Size.Small"
+             Icon="@(_connected ? Icons.Material.Filled.Bolt : Icons.Material.Filled.CloudOff)">
+        @(_connected ? "Live" : "Connecting…")
+    </MudChip>
+</div>
+
+<MudGrid Class="mt-2">
+    @foreach (var tile in Tiles)
+    {
+        <MudItem xs="12" sm="6" md="3">
+            <div class="metric-tile @tile.Accent">
+                <div class="metric-tile-top">
+                    <MudIcon Icon="@tile.Icon" Class="metric-tile-icon" />
+                    <MudText Typo="Typo.caption" Class="metric-tile-label">@tile.Label</MudText>
+                </div>
+                <MudText Typo="Typo.h4" Class="metric-tile-value">@tile.Value</MudText>
+            </div>
+        </MudItem>
+    }
+</MudGrid>
+
+<div class="chart-panel mt-6">
+    <div class="chart-panel-header">
+        <MudText Typo="Typo.subtitle1">Memory timeline</MudText>
+        <MudText Typo="Typo.caption">Last @_memorySamples.Count samples · 1s feed</MudText>
+    </div>
+    @if (_memorySamples.Count > 1)
+    {
+        <MudChart ChartType="ChartType.Line" ChartSeries="_series" XAxisLabels="_labels" Width="100%" Height="300px"
+                  ChartOptions="_chartOptions" />
+    }
+    else
+    {
+        <div class="chart-empty">
+            <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-3" />
+            <MudText Typo="Typo.body2">Waiting for live samples…</MudText>
+        </div>
+    }
+</div>
+
+@code {
+    private HubConnection? _hub;
+    private LiveMetricsDto? _metrics;
+    private bool _connected;
+    private readonly List<double> _memorySamples = [];
+    private readonly List<string> _labelBuf = [];
+    private List<ChartSeries> _series = [];
+    private string[] _labels = [];
+    private readonly ChartOptions _chartOptions = new()
+    {
+        YAxisTicks = 5,
+        LineStrokeWidth = 2
+    };
+
+    private IEnumerable<(string Label, string Value, string Icon, string Accent)> Tiles =>
+    [
+        ("Memory used", FormatBytes(_metrics?.MemoryBytes ?? 0), Icons.Material.Filled.Memory, "accent-teal"),
+        ("Memory limit", _metrics?.MemoryLimitBytes is > 0 ? FormatBytes(_metrics.MemoryLimitBytes) : "unlimited", Icons.Material.Filled.Straighten, "accent-slate"),
+        ("Clients", (_metrics?.ConnectedClients ?? 0).ToString("N0"), Icons.Material.Filled.People, "accent-cyan"),
+        ("Keys", (_metrics?.KeyCount ?? 0).ToString("N0"), Icons.Material.Filled.Key, "accent-amber"),
+        ("Hit ratio", (_metrics?.HitRatio ?? 0).ToString("P1"), Icons.Material.Filled.TrendingUp, "accent-green"),
+        ("Misses", (_metrics?.CacheMisses ?? 0).ToString("N0"), Icons.Material.Filled.TrendingDown, "accent-rose"),
+        ("Evictions", (_metrics?.Evictions ?? 0).ToString("N0"), Icons.Material.Filled.DeleteSweep, "accent-orange"),
+        ("Expired", (_metrics?.ExpiredKeys ?? 0).ToString("N0"), Icons.Material.Filled.TimerOff, "accent-violet")
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var snap = await MetricsApi.GetSnapshotAsync(new Empty());
+            ApplyMetrics(new LiveMetricsDto(
+                snap.MemoryBytes, snap.MemoryLimitBytes, snap.ConnectedClients, snap.KeyCount,
+                snap.CacheHits, snap.CacheMisses, snap.HitRatio, snap.Evictions, snap.ExpiredKeys));
+        }
+        catch
+        {
+            // Live hub will populate when Server is reachable.
+        }
+
+        _hub = new HubConnectionBuilder()
+            .WithUrl(Nav.ToAbsoluteUri("/hubs/live"))
+            .WithAutomaticReconnect()
+            .Build();
+        _hub.Reconnecting += _ => { _connected = false; return InvokeAsync(StateHasChanged); };
+        _hub.Reconnected += _ => { _connected = true; return InvokeAsync(StateHasChanged); };
+        _hub.Closed += _ => { _connected = false; return InvokeAsync(StateHasChanged); };
+        _hub.On<LiveMetricsDto>("metrics", snap =>
+        {
+            ApplyMetrics(snap);
+            _ = InvokeAsync(StateHasChanged);
+        });
+        await _hub.StartAsync();
+        _connected = _hub.State == HubConnectionState.Connected;
+    }
+
+    private void ApplyMetrics(LiveMetricsDto snap)
+    {
+        _metrics = snap;
+        _memorySamples.Add(snap.MemoryBytes);
+        _labelBuf.Add(DateTime.Now.ToString("HH:mm:ss"));
+        if (_memorySamples.Count > 60)
+        {
+            _memorySamples.RemoveAt(0);
+            _labelBuf.RemoveAt(0);
+        }
+
+        _series =
+        [
+            new ChartSeries { Name = "Memory bytes", Data = _memorySamples.ToArray() }
+        ];
+        // Show sparse labels so MudChart does not paint an unreadable blob.
+        _labels = _labelBuf.Select((label, i) =>
+            i == 0 || i == _labelBuf.Count - 1 || i % 10 == 0 ? label : string.Empty).ToArray();
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
+        return $"{bytes / (1024.0 * 1024):F2} MB";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hub is not null)
+        {
+            await _hub.DisposeAsync();
+        }
+    }
+}

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>NovaDB.Admin</RootNamespace>
+    <NoWarn>$(NoWarn);CS1591;MUD0002</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NovaDB.Contracts\NovaDB.Contracts.csproj" />
+    <ProjectReference Include="..\NovaDB.ServiceDefaults\NovaDB.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.0" />
+    <PackageReference Include="MudBlazor" Version="8.9.0" />
+    <PackageReference Include="Grpc.Net.ClientFactory" Version="2.71.0" />
+  </ItemGroup>
+
+</Project>

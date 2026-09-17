@@ -1,0 +1,166 @@
+syntax = "proto3";
+
+option csharp_namespace = "NovaDB.Contracts.Admin";
+
+package novadb.admin;
+
+service MetricsService {
+  rpc GetSnapshot (Empty) returns (MetricsSnapshot);
+}
+
+service KeyService {
+  rpc ScanKeys (ScanKeysRequest) returns (ScanKeysResponse);
+  rpc GetKey (KeyRequest) returns (KeyDetails);
+  rpc SetString (SetStringRequest) returns (MutationResult);
+  rpc DeleteKey (KeyRequest) returns (MutationResult);
+  rpc RenameKey (RenameKeyRequest) returns (MutationResult);
+}
+
+service ClientService {
+  rpc ListClients (Empty) returns (ClientList);
+  rpc KillClient (KillClientRequest) returns (MutationResult);
+}
+
+service ConfigService {
+  rpc GetConfig (Empty) returns (ConfigSnapshot);
+  rpc SetConfig (SetConfigRequest) returns (MutationResult);
+}
+
+service HealthService {
+  rpc GetHealth (Empty) returns (HealthSnapshot);
+}
+
+service PersistenceService {
+  rpc GetStatus (Empty) returns (PersistenceStatus);
+  rpc TriggerSnapshot (Empty) returns (MutationResult);
+  rpc TriggerAofRewrite (Empty) returns (MutationResult);
+}
+
+service PubSubService {
+  rpc GetStats (Empty) returns (PubSubStats);
+  rpc Publish (PublishRequest) returns (MutationResult);
+}
+
+message Empty {}
+
+message MetricsSnapshot {
+  int64 connected_clients = 1;
+  int64 memory_bytes = 2;
+  int64 memory_limit_bytes = 3;
+  int64 cache_hits = 4;
+  int64 cache_misses = 5;
+  int64 evictions = 6;
+  int64 expired_keys = 7;
+  int64 key_count = 8;
+  int64 aof_queue_depth = 9;
+  double hit_ratio = 10;
+  int64 utc_unix_ms = 11;
+}
+
+message ScanKeysRequest {
+  int64 cursor = 1;
+  int32 count = 2;
+  string prefix = 3;
+  string type_filter = 4;
+}
+
+message ScanKeysResponse {
+  int64 next_cursor = 1;
+  repeated KeySummary keys = 2;
+}
+
+message KeySummary {
+  string key = 1;
+  string type = 2;
+  int64 ttl_ms = 3;
+  int64 estimated_bytes = 4;
+}
+
+message KeyRequest {
+  string key = 1;
+}
+
+message KeyDetails {
+  string key = 1;
+  string type = 2;
+  int64 ttl_ms = 3;
+  int64 estimated_bytes = 4;
+  string string_value = 5;
+  bool found = 6;
+}
+
+message SetStringRequest {
+  string key = 1;
+  string value = 2;
+  int64 ttl_ms = 3;
+}
+
+message RenameKeyRequest {
+  string key = 1;
+  string new_key = 2;
+}
+
+message MutationResult {
+  bool ok = 1;
+  string message = 2;
+  int64 affected = 3;
+}
+
+message ClientInfo {
+  string connection_id = 1;
+  string remote_address = 2;
+  bool authenticated = 3;
+  bool subscribed = 4;
+}
+
+message ClientList {
+  repeated ClientInfo clients = 1;
+}
+
+message KillClientRequest {
+  string connection_id = 1;
+}
+
+message ConfigSnapshot {
+  int64 memory_limit_bytes = 1;
+  string eviction_policy = 2;
+  bool aof_enabled = 3;
+  string aof_flush_policy = 4;
+  int32 max_connections = 5;
+  string idle_timeout = 6;
+  int32 shard_count = 7;
+}
+
+message SetConfigRequest {
+  string key = 1;
+  string value = 2;
+  string actor = 3;
+}
+
+message HealthSnapshot {
+  string status = 1;
+  string description = 2;
+  int64 key_count = 3;
+  int64 memory_bytes = 4;
+  bool ready = 5;
+}
+
+message PersistenceStatus {
+  bool aof_enabled = 1;
+  string aof_flush_policy = 2;
+  string data_directory = 3;
+  int64 aof_size_bytes = 4;
+  bool snapshot_exists = 5;
+  string last_snapshot_path = 6;
+  bool aof_rewrite_in_progress = 7;
+}
+
+message PubSubStats {
+  int32 tracked_channels = 1;
+  string note = 2;
+}
+
+message PublishRequest {
+  string channel = 1;
+  string message = 2;
+}

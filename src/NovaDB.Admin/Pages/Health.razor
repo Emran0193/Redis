@@ -1,0 +1,33 @@
+@page "/health"
+@attribute [Authorize(Policy = AdminPolicies.ReadOnly)]
+@inject HealthService.HealthServiceClient HealthApi
+@inject NavigationManager Nav
+@implements IAsyncDisposable
+
+<MudText Typo="Typo.h4" Class="mb-4">Health</MudText>
+
+@if (_health is not null)
+{
+    <MudAlert Severity="@(_health.Ready ? Severity.Success : Severity.Error)" Class="mb-3">@_health.Status — @_health.Description</MudAlert>
+    <MudText>Keys: @_health.KeyCount</MudText>
+    <MudText>Memory: @_health.MemoryBytes bytes</MudText>
+}
+
+@code {
+    private LiveHealthDto? _health;
+    private HubConnection? _hub;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var h = await HealthApi.GetHealthAsync(new Empty());
+        _health = new LiveHealthDto(h.Ready, h.Status, h.Description, h.KeyCount, h.MemoryBytes);
+        _hub = new HubConnectionBuilder().WithUrl(Nav.ToAbsoluteUri("/hubs/live")).WithAutomaticReconnect().Build();
+        _hub.On<LiveHealthDto>("health", snap => { _health = snap; _ = InvokeAsync(StateHasChanged); });
+        await _hub.StartAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hub is not null) await _hub.DisposeAsync();
+    }
+}

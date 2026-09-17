@@ -1,0 +1,31 @@
+@page "/metrics"
+@attribute [Authorize(Policy = AdminPolicies.ReadOnly)]
+@inject MetricsService.MetricsServiceClient MetricsApi
+
+<MudText Typo="Typo.h4" Class="mb-4">Metrics</MudText>
+<MudButton Variant="Variant.Filled" OnClick="RefreshAsync" Class="mb-3">Refresh</MudButton>
+
+@if (_snap is not null)
+{
+    <MudSimpleTable Dense="true">
+        <tbody>
+            <tr><td>Connected clients</td><td>@_snap.ConnectedClients</td></tr>
+            <tr><td>Memory bytes</td><td>@_snap.MemoryBytes</td></tr>
+            <tr><td>Memory limit</td><td>@_snap.MemoryLimitBytes</td></tr>
+            <tr><td>Cache hits</td><td>@_snap.CacheHits</td></tr>
+            <tr><td>Cache misses</td><td>@_snap.CacheMisses</td></tr>
+            <tr><td>Hit ratio</td><td>@_snap.HitRatio.ToString("P2")</td></tr>
+            <tr><td>Evictions</td><td>@_snap.Evictions</td></tr>
+            <tr><td>Expired keys</td><td>@_snap.ExpiredKeys</td></tr>
+            <tr><td>Key count</td><td>@_snap.KeyCount</td></tr>
+        </tbody>
+    </MudSimpleTable>
+    <MudText Class="mt-3" Typo="Typo.caption">Prometheus scrape remains at Server /metrics. Aspire dashboard shows OTLP.</MudText>
+}
+
+@code {
+    private MetricsSnapshot? _snap;
+    protected override Task OnInitializedAsync() => RefreshAsync();
+    private async Task RefreshAsync() => _snap = await MetricsApi.GetSnapshotAsync(new Empty());
+}
+

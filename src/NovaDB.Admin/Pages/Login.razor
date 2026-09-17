@@ -1,0 +1,39 @@
+@page "/login"
+@layout EmptyLayout
+
+<div class="login-shell">
+    <div class="login-panel">
+        <div class="login-brand">
+            <span class="brand-glyph large">N</span>
+            <div>
+                <MudText Typo="Typo.h4" Class="brand-text">NovaDB</MudText>
+                <MudText Typo="Typo.body2" Class="login-tagline">Admin control plane</MudText>
+            </div>
+        </div>
+
+        <MudText Typo="Typo.body2" Class="login-hint mb-4">
+            Sign in as <code>admin</code>, <code>operator</code>, or <code>readonly</code>.
+            Default password: <code>changeme</code>.
+        </MudText>
+
+        @if (_error)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">Invalid credentials.</MudAlert>
+        }
+
+        <form method="post" action="/account/login" class="login-form">
+            <label class="login-label" for="username">Username</label>
+            <input id="username" class="login-input" name="username" autocomplete="username" />
+            <label class="login-label" for="password">Password</label>
+            <input id="password" class="login-input" name="password" type="password" autocomplete="current-password" />
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-4" Size="Size.Large">
+                Sign in
+            </MudButton>
+        </form>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? Error { get; set; }
+    private bool _error => Error == "1";
+}

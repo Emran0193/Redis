@@ -1,0 +1,55 @@
+@page "/persistence"
+@attribute [Authorize(Policy = AdminPolicies.ReadOnly)]
+@inject PersistenceService.PersistenceServiceClient PersistenceApi
+@inject IDialogService Dialogs
+@inject IAdminAuditLog Audit
+@inject AuthenticationStateProvider Auth
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h4" Class="mb-4">Persistence</MudText>
+
+@if (_status is not null)
+{
+    <MudPaper Class="pa-4 mb-3">
+        <MudText>AOF enabled: @_status.AofEnabled (@_status.AofFlushPolicy)</MudText>
+        <MudText>AOF size: @_status.AofSizeBytes bytes</MudText>
+        <MudText>Data directory: @_status.DataDirectory</MudText>
+        <MudText>Snapshot exists: @_status.SnapshotExists</MudText>
+        <MudText>Last snapshot: @_status.LastSnapshotPath</MudText>
+    </MudPaper>
+
+    <AuthorizeView Policy="@AdminPolicies.Operator">
+        <MudStack Row="true" Spacing="2">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SnapshotAsync">Create Snapshot</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="RewriteAsync">Compact AOF</MudButton>
+        </MudStack>
+    </AuthorizeView>
+}
+
+@code {
+    private PersistenceStatus? _status;
+    protected override async Task OnInitializedAsync()
+        => _status = await PersistenceApi.GetStatusAsync(new Empty());
+
+    private async Task SnapshotAsync()
+    {
+        var confirm = await Dialogs.ShowMessageBox("Confirm", "Write a snapshot now?", yesText: "Create", cancelText: "Cancel");
+        if (confirm != true) return;
+        var user = (await Auth.GetAuthenticationStateAsync()).User.Identity?.Name ?? "unknown";
+        var result = await PersistenceApi.TriggerSnapshotAsync(new Empty());
+        Audit.Record(user, "TriggerSnapshot", result.Message);
+        Snackbar.Add(result.Message, result.Ok ? Severity.Success : Severity.Error);
+        _status = await PersistenceApi.GetStatusAsync(new Empty());
+    }
+
+    private async Task RewriteAsync()
+    {
+        var confirm = await Dialogs.ShowMessageBox("Confirm", "Schedule BGREWRITEAOF?", yesText: "Rewrite", cancelText: "Cancel");
+        if (confirm != true) return;
+        var user = (await Auth.GetAuthenticationStateAsync()).User.Identity?.Name ?? "unknown";
+        var result = await PersistenceApi.TriggerAofRewriteAsync(new Empty());
+        Audit.Record(user, "TriggerAofRewrite", result.Message);
+        Snackbar.Add(result.Message, result.Ok ? Severity.Success : Severity.Error);
+    }
+}
+

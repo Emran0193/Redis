@@ -1,0 +1,111 @@
+@page "/keys"
+@attribute [Authorize(Policy = AdminPolicies.ReadOnly)]
+@inject KeyService.KeyServiceClient KeysClient
+@inject IAdminAuditLog Audit
+@inject AuthenticationStateProvider Auth
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h4" Class="mb-4">Keys</MudText>
+
+<MudStack Row="true" Class="mb-3" Spacing="2">
+    <MudTextField @bind-Value="_prefix" Label="Prefix" Variant="Variant.Outlined" />
+    <MudSelect T="string" @bind-Value="_typeFilter" Label="Type" Variant="Variant.Outlined" Style="min-width:140px">
+        <MudSelectItem Value="@("")">Any</MudSelectItem>
+        <MudSelectItem Value="@("String")">String</MudSelectItem>
+        <MudSelectItem Value="@("Hash")">Hash</MudSelectItem>
+        <MudSelectItem Value="@("List")">List</MudSelectItem>
+        <MudSelectItem Value="@("Set")">Set</MudSelectItem>
+        <MudSelectItem Value="@("SortedSet")">SortedSet</MudSelectItem>
+    </MudSelect>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadAsync">Scan</MudButton>
+</MudStack>
+
+<MudTable Items="_rows" Dense="true" Hover="true" Virtualize="true" Height="480px">
+    <HeaderContent>
+        <MudTh>Key</MudTh>
+        <MudTh>Type</MudTh>
+        <MudTh>TTL ms</MudTh>
+        <MudTh>Bytes</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Key">@context.Key</MudTd>
+        <MudTd>@context.Type</MudTd>
+        <MudTd>@context.TtlMs</MudTd>
+        <MudTd>@context.EstimatedBytes</MudTd>
+        <MudTd>
+            <MudIconButton Icon="@Icons.Material.Filled.Visibility" OnClick="@(() => InspectAsync(context.Key))" />
+            <AuthorizeView Policy="@AdminPolicies.Operator" Context="authCtx">
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => DeleteAsync(context.Key))" />
+            </AuthorizeView>
+        </MudTd>
+    </RowTemplate>
+</MudTable>
+
+@if (_details is { Found: true })
+{
+    <MudPaper Class="pa-4 mt-4">
+        <MudText Typo="Typo.h6">@_details.Key (@_details.Type)</MudText>
+        <MudText>TTL: @_details.TtlMs ms · Est: @_details.EstimatedBytes bytes</MudText>
+        @if (!string.IsNullOrEmpty(_details.StringValue))
+        {
+            <AuthorizeView Policy="@AdminPolicies.Operator" Context="editAuth">
+                <MudTextField @bind-Value="_editValue" Label="Value" Variant="Variant.Outlined" Class="mt-2" Lines="4" />
+                <MudButton Class="mt-2" Variant="Variant.Filled" OnClick="SaveAsync">Save</MudButton>
+            </AuthorizeView>
+            <MudText Class="mt-2" Style="white-space:pre-wrap">@_details.StringValue</MudText>
+        }
+    </MudPaper>
+}
+
+@code {
+    private string _prefix = "";
+    private string _typeFilter = "";
+    private List<KeySummary> _rows = [];
+    private KeyDetails? _details;
+    private string _editValue = "";
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var response = await KeysClient.ScanKeysAsync(new ScanKeysRequest
+        {
+            Cursor = 0,
+            Count = 200,
+            Prefix = _prefix,
+            TypeFilter = _typeFilter
+        });
+        _rows = response.Keys.ToList();
+    }
+
+    private async Task InspectAsync(string key)
+    {
+        _details = await KeysClient.GetKeyAsync(new KeyRequest { Key = key });
+        _editValue = _details.StringValue ?? "";
+    }
+
+    private async Task DeleteAsync(string key)
+    {
+        var user = (await Auth.GetAuthenticationStateAsync()).User.Identity?.Name ?? "unknown";
+        await KeysClient.DeleteKeyAsync(new KeyRequest { Key = key });
+        Audit.Record(user, "DeleteKey", key);
+        Snackbar.Add($"Deleted {key}", Severity.Success);
+        await LoadAsync();
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_details is null) return;
+        var user = (await Auth.GetAuthenticationStateAsync()).User.Identity?.Name ?? "unknown";
+        await KeysClient.SetStringAsync(new SetStringRequest
+        {
+            Key = _details.Key,
+            Value = _editValue,
+            TtlMs = _details.TtlMs > 0 ? _details.TtlMs : 0
+        });
+        Audit.Record(user, "SetString", _details.Key);
+        Snackbar.Add("Saved", Severity.Success);
+        await InspectAsync(_details.Key);
+    }
+}

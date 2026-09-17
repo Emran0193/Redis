@@ -1,0 +1,66 @@
+@page "/clients"
+@attribute [Authorize(Policy = AdminPolicies.ReadOnly)]
+@inject NavigationManager Nav
+@inject ClientService.ClientServiceClient ClientsApi
+@inject IAdminAuditLog Audit
+@inject AuthenticationStateProvider Auth
+@inject ISnackbar Snackbar
+@implements IAsyncDisposable
+
+<MudText Typo="Typo.h4" Class="mb-4">Clients</MudText>
+
+<MudTable Items="_clients" Dense="true" Hover="true" Virtualize="true" Height="520px">
+    <HeaderContent>
+        <MudTh>Id</MudTh>
+        <MudTh>Remote</MudTh>
+        <MudTh>Auth</MudTh>
+        <MudTh>Subscribed</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.ConnectionId</MudTd>
+        <MudTd>@context.RemoteAddress</MudTd>
+        <MudTd>@context.Authenticated</MudTd>
+        <MudTd>@context.Subscribed</MudTd>
+        <MudTd>
+            <AuthorizeView Policy="@AdminPolicies.Operator" Context="auth">
+                <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Outlined"
+                           OnClick="@(() => KillAsync(context.ConnectionId))">Kill</MudButton>
+            </AuthorizeView>
+        </MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+    private HubConnection? _hub;
+    private List<LiveClientDto> _clients = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var list = await ClientsApi.ListClientsAsync(new Empty());
+        _clients = list.Clients
+            .Select(c => new LiveClientDto(c.ConnectionId, c.RemoteAddress, c.Authenticated, c.Subscribed))
+            .ToList();
+
+        _hub = new HubConnectionBuilder().WithUrl(Nav.ToAbsoluteUri("/hubs/live")).WithAutomaticReconnect().Build();
+        _hub.On<LiveClientDto[]>("clients", payload =>
+        {
+            _clients = payload.ToList();
+            _ = InvokeAsync(StateHasChanged);
+        });
+        await _hub.StartAsync();
+    }
+
+    private async Task KillAsync(string id)
+    {
+        var user = (await Auth.GetAuthenticationStateAsync()).User.Identity?.Name ?? "unknown";
+        await ClientsApi.KillClientAsync(new KillClientRequest { ConnectionId = id });
+        Audit.Record(user, "KillClient", id);
+        Snackbar.Add($"Kill requested for {id}", Severity.Info);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hub is not null) await _hub.DisposeAsync();
+    }
+}

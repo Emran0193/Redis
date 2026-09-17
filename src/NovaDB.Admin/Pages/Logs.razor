@@ -1,0 +1,40 @@
+@page "/logs"
+@attribute [Authorize(Policy = AdminPolicies.ReadOnly)]
+@inject AdminLogBuffer LogBuffer
+@inject IAdminAuditLog Audit
+
+<MudText Typo="Typo.h4" Class="mb-4">Logs</MudText>
+
+<MudTabs>
+    <MudTabPanel Text="Telemetry buffer">
+        <MudTable Items="LogBuffer.Recent(200)" Dense="true" Height="480px" Virtualize="true">
+            <HeaderContent>
+                <MudTh>Time</MudTh>
+                <MudTh>Level</MudTh>
+                <MudTh>Message</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@context.Utc.ToString("HH:mm:ss")</MudTd>
+                <MudTd>@context.Level</MudTd>
+                <MudTd>@context.Message</MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudTabPanel>
+    <MudTabPanel Text="Audit">
+        <MudTable Items="Audit.Recent(200)" Dense="true" Height="480px">
+            <HeaderContent>
+                <MudTh>Time</MudTh>
+                <MudTh>Actor</MudTh>
+                <MudTh>Action</MudTh>
+                <MudTh>Detail</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@context.Utc.ToString("u")</MudTd>
+                <MudTd>@context.Actor</MudTd>
+                <MudTd>@context.Action</MudTd>
+                <MudTd>@context.Detail</MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudTabPanel>
+</MudTabs>
+
