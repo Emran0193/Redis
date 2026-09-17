@@ -15,6 +15,8 @@
     <ProjectReference Include="..\..\src\NovaDB.Storage\NovaDB.Storage.csproj" />
     <ProjectReference Include="..\..\src\NovaDB.Persistence\NovaDB.Persistence.csproj" />
     <ProjectReference Include="..\..\src\NovaDB.Configuration\NovaDB.Configuration.csproj" />
+    <ProjectReference Include="..\..\src\NovaDB.Protocol\NovaDB.Protocol.csproj" />
+    <ProjectReference Include="..\..\src\NovaDB.PubSub\NovaDB.PubSub.csproj" />
   </ItemGroup>
 
 </Project>

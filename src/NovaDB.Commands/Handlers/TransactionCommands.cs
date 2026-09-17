@@ -94,8 +94,14 @@ public sealed class ExecCommandHandler : ICommandHandler
         // WATCH conflict → null bulk; nothing was applied.
         if (!result.IsNullBulk && aofBatch.Count > 0)
         {
+            var txId = $"{context.Session.ConnectionId}:{DateTimeOffset.UtcNow.UtcTicks}";
+            var metadata = new CommandMutationMetadata(
+                context.Session.ConnectionId,
+                txId,
+                Version: 0,
+                DedupeKey: txId);
             await _mutationSink
-                .OnMutatingCommandBatchAsync(aofBatch, context.CancellationToken)
+                .OnMutatingCommandBatchAsync(aofBatch, metadata, context.CancellationToken)
                 .ConfigureAwait(false);
         }
 

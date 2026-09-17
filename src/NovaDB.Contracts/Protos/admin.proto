@@ -41,6 +41,28 @@ service PubSubService {
   rpc Publish (PublishRequest) returns (MutationResult);
 }
 
+service HistoryService {
+  rpc SearchHistory (HistorySearchRequest) returns (HistorySearchResponse);
+}
+
+service ChaosService {
+  rpc GetStatus (Empty) returns (ChaosStatus);
+  rpc EnableFault (EnableChaosRequest) returns (MutationResult);
+  rpc ClearFaults (Empty) returns (MutationResult);
+}
+
+service DiagnosticsService {
+  rpc GetMemoryDiagnostics (Empty) returns (MemoryDiagnostics);
+}
+
+service ReplicationService {
+  rpc GetStatus (Empty) returns (ReplicationStatus);
+}
+
+service PerformanceService {
+  rpc GetLatencySnapshot (Empty) returns (LatencySnapshot);
+}
+
 message Empty {}
 
 message MetricsSnapshot {
@@ -163,4 +185,76 @@ message PubSubStats {
 message PublishRequest {
   string channel = 1;
   string message = 2;
+}
+
+message HistorySearchRequest {
+  string key = 1;
+  uint64 from_exclusive_offset = 2;
+  int32 page_size = 3;
+}
+
+message HistoryEvent {
+  uint64 event_id = 1;
+  int64 utc_unix_ms = 2;
+  string command = 3;
+  string key = 4;
+  string client_id = 5;
+  string args_preview = 6;
+  string hex_preview = 7;
+  string previous_preview = 8;
+}
+
+message HistorySearchResponse {
+  repeated HistoryEvent events = 1;
+  uint64 last_event_id = 2;
+  bool has_more = 3;
+}
+
+message ChaosStatus {
+  bool permitted = 1;
+  bool active = 2;
+  string fault_kind = 3;
+  string detail = 4;
+}
+
+message EnableChaosRequest {
+  string fault_kind = 1;
+  string detail = 2;
+}
+
+message MemoryDiagnostics {
+  int64 total_available_bytes = 1;
+  int64 heap_size_bytes = 2;
+  int64 fragmented_bytes = 3;
+  int64 memory_load_bytes = 4;
+  int64 high_memory_load_threshold_bytes = 5;
+  int64 total_committed_bytes = 6;
+  int32 gen0_collections = 7;
+  int32 gen1_collections = 8;
+  int32 gen2_collections = 9;
+  bool compaction_mode_loh = 10;
+  string note = 11;
+}
+
+message ReplicationStatus {
+  uint64 primary_offset = 1;
+  uint64 replica_ack_offset = 2;
+  uint64 lag = 3;
+  bool read_only_replica = 4;
+  string snapshot_id = 5;
+  uint64 snapshot_journal_offset = 6;
+  bool transport_connected = 7;
+}
+
+message LatencySnapshot {
+  repeated LatencyBucket buckets = 1;
+  int64 sample_count = 2;
+  double p50_ms = 3;
+  double p99_ms = 4;
+  int64 utc_unix_ms = 5;
+}
+
+message LatencyBucket {
+  string label = 1;
+  int64 count = 2;
 }

@@ -25,6 +25,7 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<INovaDbMetrics>(_ => NullNovaDbMetrics.Instance);
         services.AddSingleton<TlsCertificateProvider>();
         services.AddSingleton<ConnectionManager>();
+        services.AddSingleton<ConnectionRateLimiter>();
         services.AddHostedService<TcpServerHostedService>();
 
         return services;

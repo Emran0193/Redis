@@ -15,9 +15,40 @@
             <MudText Typo="Typo.h6" Class="brand-text">NovaDB</MudText>
         </div>
         <MudSpacer />
-        <MudAutocomplete T="string" Label="Jump to…" SearchFunc="SearchPages" ValueChanged="NavigateTo"
-                         Variant="Variant.Outlined" Dense="true" Class="command-palette"
-                         Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+        <div class="command-palette-wrap" @onfocusin="OpenJump" @onfocusout="CloseJumpDeferred">
+            <MudTextField @bind-Value="_jumpText"
+                          @bind-Value:after="OnJumpTextChanged"
+                          Placeholder="Jump to page…"
+                          Variant="Variant.Outlined"
+                          Dense="true"
+                          Margin="Margin.None"
+                          Immediate="true"
+                          Clearable="true"
+                          Class="command-palette"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          AdornmentColor="Color.Primary"
+                          OnKeyDown="OnJumpKeyDown"
+                          OnClearButtonClick="ClearJump"
+                          OnAdornmentClick="OpenJump" />
+            @if (_jumpOpen && _jumpResults.Count > 0)
+            {
+                <div class="jump-popover" role="listbox">
+                    @for (var i = 0; i < _jumpResults.Count; i++)
+                    {
+                        var idx = i;
+                        var item = _jumpResults[idx];
+                        <button type="button"
+                                class="jump-option @(_jumpHighlight == idx ? "is-active" : null)"
+                                @onmousedown:preventDefault
+                                @onclick="() => GoTo(item.Path)">
+                            <span class="jump-item-label">@item.Label</span>
+                            <span class="jump-item-path">@item.Path</span>
+                        </button>
+                    }
+                </div>
+            }
+        </div>
         <MudIconButton Icon="@(Theme.IsDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
                        Color="Color.Inherit" OnClick="Theme.Toggle" />
         <form method="post" action="/account/logout">
@@ -40,6 +71,11 @@
                 <MudNavLink Href="/metrics" Icon="@Icons.Material.Filled.ShowChart">Metrics</MudNavLink>
                 <MudNavLink Href="/logs" Icon="@Icons.Material.Filled.ListAlt">Logs</MudNavLink>
                 <MudNavLink Href="/health" Icon="@Icons.Material.Filled.Favorite">Health</MudNavLink>
+                <MudNavLink Href="/history" Icon="@Icons.Material.Filled.History">History</MudNavLink>
+                <MudNavLink Href="/diagnostics" Icon="@Icons.Material.Filled.BugReport">Diagnostics</MudNavLink>
+                <MudNavLink Href="/replication" Icon="@Icons.Material.Filled.SyncAlt">Replication</MudNavLink>
+                <MudNavLink Href="/performance" Icon="@Icons.Material.Filled.Speed">Performance</MudNavLink>
+                <MudNavLink Href="/chaos" Icon="@Icons.Material.Filled.Whatshot">Chaos</MudNavLink>
             </MudNavGroup>
             <MudNavLink Href="/settings" Icon="@Icons.Material.Filled.Settings">Settings</MudNavLink>
         </MudNavMenu>
@@ -51,6 +87,11 @@
 
 @code {
     private bool _drawerOpen = true;
+    private string? _jumpText;
+    private bool _jumpOpen;
+    private int _jumpHighlight;
+    private List<(string Path, string Label)> _jumpResults = [];
+    private CancellationTokenSource? _closeCts;
     private readonly MudTheme _theme = CreateTheme();
     private static readonly (string Path, string Label)[] Pages =
     [
@@ -63,31 +104,129 @@
         ("/metrics", "Metrics"),
         ("/logs", "Logs"),
         ("/health", "Health"),
+        ("/history", "History"),
+        ("/diagnostics", "Diagnostics"),
+        ("/replication", "Replication"),
+        ("/performance", "Performance"),
+        ("/chaos", "Chaos"),
         ("/settings", "Settings")
     ];
 
-    protected override void OnInitialized() => Theme.Changed += StateHasChanged;
-    public void Dispose() => Theme.Changed -= StateHasChanged;
-    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
-
-    private Task<IEnumerable<string>> SearchPages(string value, CancellationToken ct)
+    protected override void OnInitialized()
     {
-        IEnumerable<(string Path, string Label)> q = Pages;
-        if (!string.IsNullOrWhiteSpace(value))
-        {
-            q = Pages.Where(p =>
-                p.Path.Contains(value, StringComparison.OrdinalIgnoreCase) ||
-                p.Label.Contains(value, StringComparison.OrdinalIgnoreCase));
-        }
-
-        return Task.FromResult(q.Select(p => $"{p.Label} — {p.Path}"));
+        Theme.Changed += StateHasChanged;
+        RefreshJumpResults();
     }
 
-    private void NavigateTo(string value)
+    public void Dispose()
     {
-        if (string.IsNullOrWhiteSpace(value)) return;
-        var path = value.Contains('—') ? value.Split('—')[^1].Trim() : value.Trim();
+        Theme.Changed -= StateHasChanged;
+        _closeCts?.Cancel();
+        _closeCts?.Dispose();
+    }
+
+    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+
+    private void OpenJump()
+    {
+        _closeCts?.Cancel();
+        _jumpOpen = true;
+        RefreshJumpResults();
+    }
+
+    private async Task CloseJumpDeferred()
+    {
+        _closeCts?.Cancel();
+        _closeCts = new CancellationTokenSource();
+        try
+        {
+            await Task.Delay(160, _closeCts.Token);
+            _jumpOpen = false;
+            StateHasChanged();
+        }
+        catch (TaskCanceledException)
+        {
+            // Focus moved within the palette; keep open.
+        }
+    }
+
+    private void OnJumpTextChanged()
+    {
+        _jumpOpen = true;
+        _jumpHighlight = 0;
+        RefreshJumpResults();
+    }
+
+    private void ClearJump()
+    {
+        _jumpText = null;
+        _jumpHighlight = 0;
+        RefreshJumpResults();
+        _jumpOpen = true;
+    }
+
+    private void RefreshJumpResults()
+    {
+        var query = (_jumpText ?? string.Empty).Trim();
+        IEnumerable<(string Path, string Label)> matches = Pages;
+        if (query.Length > 0)
+        {
+            matches = Pages.Where(p =>
+                p.Label.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                p.Path.Contains(query, StringComparison.OrdinalIgnoreCase));
+        }
+
+        _jumpResults = matches
+            .OrderBy(p => p.Label.StartsWith(query, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+            .ThenBy(p => p.Label, StringComparer.OrdinalIgnoreCase)
+            .Take(8)
+            .ToList();
+
+        if (_jumpHighlight >= _jumpResults.Count)
+        {
+            _jumpHighlight = Math.Max(0, _jumpResults.Count - 1);
+        }
+    }
+
+    private async Task OnJumpKeyDown(KeyboardEventArgs e)
+    {
+        if (!_jumpOpen && (e.Key is "ArrowDown" or "Enter"))
+        {
+            OpenJump();
+        }
+
+        if (_jumpResults.Count == 0)
+        {
+            return;
+        }
+
+        switch (e.Key)
+        {
+            case "ArrowDown":
+                _jumpHighlight = (_jumpHighlight + 1) % _jumpResults.Count;
+                break;
+            case "ArrowUp":
+                _jumpHighlight = (_jumpHighlight - 1 + _jumpResults.Count) % _jumpResults.Count;
+                break;
+            case "Enter":
+                GoTo(_jumpResults[_jumpHighlight].Path);
+                break;
+            case "Escape":
+                _jumpOpen = false;
+                _jumpText = null;
+                break;
+        }
+
+        await Task.CompletedTask;
+    }
+
+    private void GoTo(string path)
+    {
         Navigation.NavigateTo(path);
+        _jumpText = null;
+        _jumpOpen = false;
+        _jumpHighlight = 0;
+        RefreshJumpResults();
     }
 
     private static MudTheme CreateTheme() => new()

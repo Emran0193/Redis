@@ -59,5 +59,35 @@ public sealed class NullNovaDbMetrics : INovaDbMetrics
     }
 
     /// <inheritdoc />
+    public void RecordAofFlushLatency(double elapsedMilliseconds)
+    {
+    }
+
+    /// <inheritdoc />
+    public void SetJournalSizeBytes(long bytes)
+    {
+    }
+
+    /// <inheritdoc />
+    public void SetReplicationLag(long lag)
+    {
+    }
+
+    /// <inheritdoc />
+    public void SetSocketBacklog(long backlog)
+    {
+    }
+
+    /// <inheritdoc />
+    public void SetThreadPoolQueueLength(long length)
+    {
+    }
+
+    /// <inheritdoc />
+    public void RecordGcPause(double elapsedMilliseconds)
+    {
+    }
+
+    /// <inheritdoc />
     public NovaDbMetricsSnapshot GetSnapshot() => default;
 }

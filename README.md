@@ -1,8 +1,8 @@
 # NovaDB
 
-A Redis-compatible **single-node in-memory cache** in C# (.NET 10) — built as an engineering showcase: RESP2, sharded storage, AOF/snapshots, transactions, eviction, and production hardening.
+A Redis-compatible **single-node in-memory cache** in C# (.NET 10) — built as an engineering showcase: RESP2, sharded storage, AOF/snapshots, transactions, eviction, and production hardening (command journal, replication foundation, time-travel History, chaos drills, soak tests).
 
-> **Product mode:** ephemeral / rebuildable cache (single process). Not Redis Cluster/Sentinel. Prefer treating the data plane as disposable unless AOF/snapshots are explicitly enabled for demos.
+> **Product mode:** ephemeral / rebuildable cache (single process). Not Redis Cluster/Sentinel. Prefer treating the data plane as disposable unless AOF/snapshots/journal are explicitly enabled for demos.
 
 ## Highlights (portfolio-ready)
 
@@ -11,8 +11,10 @@ A Redis-compatible **single-node in-memory cache** in C# (.NET 10) — built as 
 - **Hash cache:** `HSET`/`HGET`/`HMGET`/`HDEL`/`HGETALL`/`HINCRBY`/`HEXISTS`/`HLEN`/`HKEYS`/`HVALS`
 - **maxmemory** eviction with Redis policy names; live `CONFIG SET maxmemory` / `maxmemory-policy`
 - Persistence: AOF (incl. Always group-commit for `EXEC`) + CRC snapshots with short-freeze serialize
+- **Command journal** (`commands.ndbj`) for replication streaming + Admin History time-travel
+- **Replication foundation** (interfaces, offset, backpressure, read-only replica) — no election yet
 - `MULTI`/`EXEC`/`WATCH`, pub/sub, AUTH + IP lockout, TLS option, Prometheus metrics, readiness-aware `/health`
-- Ops surface: `INFO`, `MEMORY`, `CLIENT`, minimal `ACL` probe commands
+- Ops surface: `INFO`, `MEMORY`, `CLIENT`, minimal `ACL` probe commands; Admin pages for Diagnostics / Chaos / Performance
 - Client trust: StackExchange.Redis smoke + multi-client **pipeline soak**
 
 ## Run
@@ -29,7 +31,7 @@ dotnet run --project aspire/NovaDB.AppHost
 
 Default RESP port: **6379**. HTTP health/metrics: **7380**. Admin gRPC (HTTP/2): **7381**. Admin UI from AppHost (login `admin` / `changeme`).
 
-See [docs/Integration.md](docs/Integration.md) and [docs/Admin/](docs/Admin/).
+See [docs/Integration.md](docs/Integration.md), [docs/Admin/](docs/Admin/), and [docs/Production/](docs/Production/) (architecture audit + runbooks).
 
 ## Test
 
@@ -43,6 +45,7 @@ dotnet test NovaDB.slnx
 - Non-loopback bind **requires** `Password` and/or `TlsEnabled` (unless `AllowUnauthenticatedPublicBind`).
 - `AUTH` + IP lockout are implemented; `ACL` exposes WHOAMI/LIST/USERS for client probes — **not** full Redis ACL (single default user).
 - Prefer: set `NovaDB:Password` in `appsettings.json` before any shared deployment.
+- Chaos injection requires Development + `ChaosEnabled` — never enable in Production.
 
 ## Benchmark
 

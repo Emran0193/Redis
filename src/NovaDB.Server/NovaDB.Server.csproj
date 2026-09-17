@@ -13,6 +13,9 @@
     <ProjectReference Include="..\NovaDB.Monitoring\NovaDB.Monitoring.csproj" />
     <ProjectReference Include="..\NovaDB.Contracts\NovaDB.Contracts.csproj" />
     <ProjectReference Include="..\NovaDB.ServiceDefaults\NovaDB.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\NovaDB.Journal\NovaDB.Journal.csproj" />
+    <ProjectReference Include="..\NovaDB.Replication\NovaDB.Replication.csproj" />
+    <ProjectReference Include="..\NovaDB.Chaos\NovaDB.Chaos.csproj" />
   </ItemGroup>
 
   <ItemGroup>

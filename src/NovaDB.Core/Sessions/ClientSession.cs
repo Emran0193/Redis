@@ -28,6 +28,12 @@ public sealed class ClientSession
     /// <summary>Gets or sets whether the client has authenticated.</summary>
     public bool IsAuthenticated { get; set; }
 
+    /// <summary>
+    /// Gets or sets the coarse session role used for command authorization.
+    /// Authenticated clients default to Operator; unauthenticated remain None.
+    /// </summary>
+    public ClientRole Role { get; set; }
+
     /// <summary>Gets or sets whether a MULTI transaction is active.</summary>
     public bool InMulti { get; set; }
 

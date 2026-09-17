@@ -1,0 +1,27 @@
+@page "/replication"
+@attribute [Authorize(Policy = AdminPolicies.ReadOnly)]
+@inject ReplicationService.ReplicationServiceClient ReplicationApi
+
+<MudText Typo="Typo.h4" Class="mb-4">Replication</MudText>
+<MudButton Variant="Variant.Filled" OnClick="RefreshAsync" Class="mb-3">Refresh</MudButton>
+
+@if (_status is not null)
+{
+    <MudSimpleTable Dense="true">
+        <tbody>
+            <tr><td>Primary offset</td><td>@_status.PrimaryOffset</td></tr>
+            <tr><td>Replica ack</td><td>@_status.ReplicaAckOffset</td></tr>
+            <tr><td>Lag</td><td>@_status.Lag</td></tr>
+            <tr><td>Read-only replica</td><td>@_status.ReadOnlyReplica</td></tr>
+            <tr><td>Snapshot id</td><td>@_status.SnapshotId</td></tr>
+            <tr><td>Snapshot journal offset</td><td>@_status.SnapshotJournalOffset</td></tr>
+            <tr><td>Transport connected</td><td>@_status.TransportConnected</td></tr>
+        </tbody>
+    </MudSimpleTable>
+}
+
+@code {
+    private ReplicationStatus? _status;
+    protected override Task OnInitializedAsync() => RefreshAsync();
+    private async Task RefreshAsync() => _status = await ReplicationApi.GetStatusAsync(new Empty());
+}

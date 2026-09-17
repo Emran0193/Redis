@@ -3,16 +3,20 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using NovaDB.Chaos;
 using NovaDB.Commands;
 using NovaDB.Commands.Persistence;
 using NovaDB.Configuration;
+using NovaDB.Journal;
 using NovaDB.Monitoring;
 using NovaDB.Networking;
 using NovaDB.Persistence;
 using NovaDB.Persistence.Recovery;
 using NovaDB.Protocol;
 using NovaDB.PubSub;
+using NovaDB.Replication;
 using NovaDB.Server.Admin.Services;
+using NovaDB.Server.Diagnostics;
 using NovaDB.Storage;
 using NovaDB.Transactions;
 
@@ -37,11 +41,16 @@ builder.Services.AddNovaDbConfiguration(builder.Configuration);
 builder.Services.AddNovaDbProtocol();
 builder.Services.AddNovaDbStorage();
 builder.Services.AddNovaDbPersistence();
+builder.Services.AddNovaDbJournal();
+builder.Services.AddNovaDbReplication();
+builder.Services.AddNovaDbChaos();
 builder.Services.AddNovaDbTransactions();
 builder.Services.AddNovaDbPubSub();
 builder.Services.AddNovaDbMonitoring();
 builder.Services.AddNovaDbCommands();
 builder.Services.AddNovaDbCommandReplay();
+builder.Services.AddSingleton<MemoryDiagnosticsService>();
+builder.Services.AddSingleton<ConnectionRateLimiter>();
 
 builder.Services.AddSingleton<ConnectionManager>();
 builder.Services.AddSingleton<TlsCertificateProvider>();
@@ -55,6 +64,8 @@ builder.Services.AddSingleton<IHostedService>(sp =>
         sp.GetRequiredService<ILogger<TcpServerHostedService>>(),
         sp.GetRequiredService<ILoggerFactory>(),
         sp.GetRequiredService<TlsCertificateProvider>(),
+        sp.GetRequiredService<ConnectionRateLimiter>(),
+        sp.GetService<IChaosFaultEngine>(),
         ct => gate.Ready.WaitAsync(ct));
 });
 
@@ -63,6 +74,7 @@ builder.Services.AddHealthChecks()
     .AddCheck<NovaDbHealthCheck>("novadb");
 
 var app = builder.Build();
+NovaDB.Replication.ServiceCollectionExtensions.LogReplicationMode(app.Services);
 
 app.MapHealthChecks("/health", new HealthCheckOptions
 {
@@ -92,6 +104,11 @@ app.MapGrpcService<ConfigGrpcService>();
 app.MapGrpcService<HealthGrpcService>();
 app.MapGrpcService<PersistenceGrpcService>();
 app.MapGrpcService<PubSubGrpcService>();
+app.MapGrpcService<HistoryGrpcService>();
+app.MapGrpcService<ChaosGrpcService>();
+app.MapGrpcService<DiagnosticsGrpcService>();
+app.MapGrpcService<ReplicationGrpcService>();
+app.MapGrpcService<PerformanceGrpcService>();
 
 var options = app.Services.GetRequiredService<IOptions<NovaDbOptions>>().Value;
 

@@ -1,0 +1,26 @@
+@page "/performance"
+@attribute [Authorize(Policy = AdminPolicies.ReadOnly)]
+@inject PerformanceService.PerformanceServiceClient PerformanceApi
+
+<MudText Typo="Typo.h4" Class="mb-4">Performance</MudText>
+<MudButton Variant="Variant.Filled" OnClick="RefreshAsync" Class="mb-3">Refresh</MudButton>
+
+@if (_snap is not null)
+{
+    <MudText Class="mb-2">Samples: @_snap.SampleCount · p50≈@_snap.P50Ms.ToString("F2") ms · p99≈@_snap.P99Ms.ToString("F2") ms</MudText>
+    <MudSimpleTable Dense="true">
+        <thead><tr><th>Bucket</th><th>Count</th></tr></thead>
+        <tbody>
+            @foreach (var b in _snap.Buckets)
+            {
+                <tr><td>@b.Label</td><td>@b.Count</td></tr>
+            }
+        </tbody>
+    </MudSimpleTable>
+}
+
+@code {
+    private LatencySnapshot? _snap;
+    protected override Task OnInitializedAsync() => RefreshAsync();
+    private async Task RefreshAsync() => _snap = await PerformanceApi.GetLatencySnapshotAsync(new Empty());
+}

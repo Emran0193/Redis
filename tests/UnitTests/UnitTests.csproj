@@ -31,6 +31,9 @@
     <ProjectReference Include="..\..\src\NovaDB.Commands\NovaDB.Commands.csproj" />
     <ProjectReference Include="..\..\src\NovaDB.Configuration\NovaDB.Configuration.csproj" />
     <ProjectReference Include="..\..\src\NovaDB.Core\NovaDB.Core.csproj" />
+    <ProjectReference Include="..\..\src\NovaDB.Journal\NovaDB.Journal.csproj" />
+    <ProjectReference Include="..\..\src\NovaDB.Chaos\NovaDB.Chaos.csproj" />
+    <ProjectReference Include="..\..\src\NovaDB.Replication\NovaDB.Replication.csproj" />
     <ProjectReference Include="..\..\src\NovaDB.Networking\NovaDB.Networking.csproj" />
     <ProjectReference Include="..\..\src\NovaDB.Protocol\NovaDB.Protocol.csproj" />
     <ProjectReference Include="..\..\src\NovaDB.PubSub\NovaDB.PubSub.csproj" />

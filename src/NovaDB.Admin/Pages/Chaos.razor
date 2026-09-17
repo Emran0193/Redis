@@ -1,0 +1,71 @@
+@page "/chaos"
+@attribute [Authorize(Policy = AdminPolicies.Admin)]
+@inject ChaosService.ChaosServiceClient ChaosApi
+
+<MudText Typo="Typo.h4" Class="mb-4">Chaos</MudText>
+<MudAlert Severity="Severity.Warning" Class="mb-3">
+    Chaos injection is Development-only and requires NovaDB:ChaosEnabled=true on the server.
+</MudAlert>
+
+@if (_status is not null)
+{
+    <MudSimpleTable Dense="true" Class="mb-3">
+        <tbody>
+            <tr><td>Permitted</td><td>@_status.Permitted</td></tr>
+            <tr><td>Active</td><td>@_status.Active</td></tr>
+            <tr><td>Fault</td><td>@_status.FaultKind</td></tr>
+            <tr><td>Detail</td><td>@_status.Detail</td></tr>
+        </tbody>
+    </MudSimpleTable>
+}
+
+<MudStack Row="true" Spacing="2" Class="mb-3">
+    <MudSelect T="string" @bind-Value="_fault" Label="Fault" Variant="Variant.Outlined" Dense="true" Style="min-width:240px">
+        @foreach (var f in _faults)
+        {
+            <MudSelectItem Value="@f">@f</MudSelectItem>
+        }
+    </MudSelect>
+    <MudTextField @bind-Value="_detail" Label="Detail (e.g. latency ms)" Variant="Variant.Outlined" Dense="true" />
+    <MudButton Variant="Variant.Filled" Color="Color.Warning" OnClick="EnableAsync">Enable</MudButton>
+    <MudButton Variant="Variant.Outlined" OnClick="ClearAsync">Clear</MudButton>
+</MudStack>
+
+@if (_message is not null)
+{
+    <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)">@_message</MudAlert>
+}
+
+@code {
+    private static readonly string[] _faults =
+    [
+        "NetworkLatency", "PacketLoss", "DiskFull", "SlowDisk", "MemoryPressure",
+        "SocketDisconnect", "AofCorruption", "SnapshotInterruption", "ThreadPoolStarvation"
+    ];
+
+    private ChaosStatus? _status;
+    private string _fault = "NetworkLatency";
+    private string _detail = "50";
+    private string? _message;
+    private bool _ok;
+
+    protected override Task OnInitializedAsync() => RefreshAsync();
+
+    private async Task RefreshAsync() => _status = await ChaosApi.GetStatusAsync(new Empty());
+
+    private async Task EnableAsync()
+    {
+        var result = await ChaosApi.EnableFaultAsync(new EnableChaosRequest { FaultKind = _fault, Detail = _detail });
+        _ok = result.Ok;
+        _message = result.Message;
+        await RefreshAsync();
+    }
+
+    private async Task ClearAsync()
+    {
+        var result = await ChaosApi.ClearFaultsAsync(new Empty());
+        _ok = result.Ok;
+        _message = result.Message;
+        await RefreshAsync();
+    }
+}

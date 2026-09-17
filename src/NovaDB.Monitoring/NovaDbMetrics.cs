@@ -12,6 +12,8 @@ public sealed class NovaDbMetrics : INovaDbMetrics, IDisposable
 
     private readonly Meter _meter;
     private readonly Histogram<double> _commandLatency;
+    private readonly Histogram<double> _aofFlushLatency;
+    private readonly Histogram<double> _gcPause;
     private readonly UpDownCounter<long> _connectedClientsMetric;
     private readonly Counter<long> _cacheHitsMetric;
     private readonly Counter<long> _cacheMissesMetric;
@@ -25,6 +27,10 @@ public sealed class NovaDbMetrics : INovaDbMetrics, IDisposable
     private long _expiredKeys;
     private long _aofQueueDepth;
     private long _aofRewriteInProgress;
+    private long _journalSizeBytes;
+    private long _replicationLag;
+    private long _socketBacklog;
+    private long _threadPoolQueueLength;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="NovaDbMetrics"/> class.
@@ -37,6 +43,16 @@ public sealed class NovaDbMetrics : INovaDbMetrics, IDisposable
             "novadb.command.latency",
             unit: "ms",
             description: "Command execution latency in milliseconds");
+
+        _aofFlushLatency = _meter.CreateHistogram<double>(
+            "novadb.aof.flush_latency",
+            unit: "ms",
+            description: "AOF flush latency in milliseconds");
+
+        _gcPause = _meter.CreateHistogram<double>(
+            "novadb.gc.pause",
+            unit: "ms",
+            description: "GC pause duration in milliseconds");
 
         _connectedClientsMetric = _meter.CreateUpDownCounter<long>(
             "novadb.clients.connected",
@@ -73,6 +89,27 @@ public sealed class NovaDbMetrics : INovaDbMetrics, IDisposable
             "novadb.aof.rewrite_in_progress",
             () => Volatile.Read(ref _aofRewriteInProgress),
             description: "1 while an AOF rewrite is running");
+
+        _meter.CreateObservableGauge(
+            "novadb.journal.size_bytes",
+            () => Volatile.Read(ref _journalSizeBytes),
+            unit: "bytes",
+            description: "Durable command journal size");
+
+        _meter.CreateObservableGauge(
+            "novadb.replication.lag",
+            () => Volatile.Read(ref _replicationLag),
+            description: "Replication lag in journal events");
+
+        _meter.CreateObservableGauge(
+            "novadb.socket.backlog",
+            () => Volatile.Read(ref _socketBacklog),
+            description: "Estimated socket accept backlog");
+
+        _meter.CreateObservableGauge(
+            "novadb.threadpool.queue_length",
+            () => Volatile.Read(ref _threadPoolQueueLength),
+            description: "Thread-pool work-item queue length estimate");
     }
 
     /// <inheritdoc />
@@ -136,6 +173,26 @@ public sealed class NovaDbMetrics : INovaDbMetrics, IDisposable
     /// <inheritdoc />
     public void SetAofRewriteInProgress(bool inProgress)
         => Interlocked.Exchange(ref _aofRewriteInProgress, inProgress ? 1 : 0);
+
+    /// <inheritdoc />
+    public void RecordAofFlushLatency(double elapsedMilliseconds)
+        => _aofFlushLatency.Record(elapsedMilliseconds);
+
+    /// <inheritdoc />
+    public void SetJournalSizeBytes(long bytes) => Interlocked.Exchange(ref _journalSizeBytes, bytes);
+
+    /// <inheritdoc />
+    public void SetReplicationLag(long lag) => Interlocked.Exchange(ref _replicationLag, lag);
+
+    /// <inheritdoc />
+    public void SetSocketBacklog(long backlog) => Interlocked.Exchange(ref _socketBacklog, backlog);
+
+    /// <inheritdoc />
+    public void SetThreadPoolQueueLength(long length)
+        => Interlocked.Exchange(ref _threadPoolQueueLength, length);
+
+    /// <inheritdoc />
+    public void RecordGcPause(double elapsedMilliseconds) => _gcPause.Record(elapsedMilliseconds);
 
     /// <inheritdoc />
     public NovaDbMetricsSnapshot GetSnapshot()

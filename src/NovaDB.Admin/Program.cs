@@ -64,6 +64,11 @@ AddAdminGrpcClient<ConfigService.ConfigServiceClient>();
 AddAdminGrpcClient<HealthService.HealthServiceClient>();
 AddAdminGrpcClient<PersistenceService.PersistenceServiceClient>();
 AddAdminGrpcClient<PubSubService.PubSubServiceClient>();
+AddAdminGrpcClient<HistoryService.HistoryServiceClient>();
+AddAdminGrpcClient<ChaosService.ChaosServiceClient>();
+AddAdminGrpcClient<DiagnosticsService.DiagnosticsServiceClient>();
+AddAdminGrpcClient<ReplicationService.ReplicationServiceClient>();
+AddAdminGrpcClient<PerformanceService.PerformanceServiceClient>();
 
 var app = builder.Build();
 

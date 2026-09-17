@@ -58,6 +58,24 @@ public interface INovaDbMetrics
     /// </summary>
     void SetAofRewriteInProgress(bool inProgress);
 
+    /// <summary>Records AOF flush latency in milliseconds.</summary>
+    void RecordAofFlushLatency(double elapsedMilliseconds);
+
+    /// <summary>Updates durable journal size gauge.</summary>
+    void SetJournalSizeBytes(long bytes);
+
+    /// <summary>Updates replication lag (primary offset − replica ack) gauge.</summary>
+    void SetReplicationLag(long lag);
+
+    /// <summary>Updates estimated socket accept backlog gauge.</summary>
+    void SetSocketBacklog(long backlog);
+
+    /// <summary>Updates thread-pool queue length gauge.</summary>
+    void SetThreadPoolQueueLength(long length);
+
+    /// <summary>Records a GC pause duration in milliseconds.</summary>
+    void RecordGcPause(double elapsedMilliseconds);
+
     /// <summary>Gets a point-in-time snapshot of counters for INFO / MEMORY.</summary>
     NovaDbMetricsSnapshot GetSnapshot();
 }

@@ -1,0 +1,81 @@
+@page "/history"
+@attribute [Authorize(Policy = AdminPolicies.ReadOnly)]
+@inject HistoryService.HistoryServiceClient HistoryApi
+
+<MudText Typo="Typo.h4" Class="mb-4">History</MudText>
+<MudStack Row="true" Spacing="2" Class="mb-3">
+    <MudTextField @bind-Value="_key" Label="Key" Variant="Variant.Outlined" Dense="true" Style="min-width:280px" />
+    <MudNumericField @bind-Value="_pageSize" Label="Page size" Variant="Variant.Outlined" Dense="true" Min="1" Max="500" />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SearchAsync">Search</MudButton>
+    <MudButton Variant="Variant.Outlined" Disabled="@(!_hasMore)" OnClick="NextPageAsync">Next page</MudButton>
+</MudStack>
+
+@if (_error is not null)
+{
+    <MudAlert Severity="Severity.Warning" Class="mb-3">@_error</MudAlert>
+}
+
+<MudTable Items="_events" Dense="true" Hover="true" Virtualize="true" Height="480px">
+    <HeaderContent>
+        <MudTh>Id</MudTh>
+        <MudTh>UTC</MudTh>
+        <MudTh>Command</MudTh>
+        <MudTh>Args</MudTh>
+        <MudTh>Previous</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.EventId</MudTd>
+        <MudTd>@DateTimeOffset.FromUnixTimeMilliseconds(context.UtcUnixMs).UtcDateTime.ToString("u")</MudTd>
+        <MudTd>@context.Command</MudTd>
+        <MudTd><code>@context.ArgsPreview</code></MudTd>
+        <MudTd><code>@context.PreviousPreview</code></MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+    private string _key = string.Empty;
+    private int _pageSize = 50;
+    private ulong _cursor;
+    private bool _hasMore;
+    private string? _error;
+    private List<HistoryEvent> _events = [];
+
+    private async Task SearchAsync()
+    {
+        _cursor = 0;
+        await LoadAsync().ConfigureAwait(false);
+    }
+
+    private async Task NextPageAsync()
+    {
+        if (!_hasMore) return;
+        await LoadAsync().ConfigureAwait(false);
+    }
+
+    private async Task LoadAsync()
+    {
+        _error = null;
+        if (string.IsNullOrWhiteSpace(_key))
+        {
+            _error = "Enter a key to search.";
+            return;
+        }
+
+        try
+        {
+            var response = await HistoryApi.SearchHistoryAsync(new HistorySearchRequest
+            {
+                Key = _key,
+                FromExclusiveOffset = _cursor,
+                PageSize = _pageSize
+            });
+            _events = response.Events.ToList();
+            _cursor = response.LastEventId;
+            _hasMore = response.HasMore;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+}

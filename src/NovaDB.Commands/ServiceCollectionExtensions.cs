@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using NovaDB.Commands.Handlers;
 using NovaDB.Commands.Persistence;
 using NovaDB.Commands.PubSub;
+using NovaDB.Commands.Security;
 using NovaDB.Monitoring;
 using NovaDB.Networking;
 
@@ -25,13 +26,30 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<INovaDbMetrics>(_ => NullNovaDbMetrics.Instance);
         services.TryAddSingleton<AuthRateLimiter>();
         services.TryAddSingleton<AuthPasswordVerifier>();
+        services.TryAddSingleton<CommandAuthorization>();
+        services.TryAddSingleton<IAuditTrail, FileAuditTrail>();
 
         services.AddSingleton<ICommandMutationSink>(sp =>
         {
+            var sinks = new List<ICommandMutationSink>();
             var persistenceSink = sp.GetService<NovaDB.Persistence.ICommandMutationSink>();
-            return persistenceSink is null
-                ? NullCommandMutationSink.Instance
-                : new PersistenceMutationSinkAdapter(persistenceSink);
+            if (persistenceSink is not null)
+            {
+                sinks.Add(new PersistenceMutationSinkAdapter(persistenceSink));
+            }
+
+            var journal = sp.GetService<NovaDB.Journal.ICommandJournal>();
+            if (journal is not null)
+            {
+                sinks.Add(new JournalMutationSink(journal));
+            }
+
+            return sinks.Count switch
+            {
+                0 => NullCommandMutationSink.Instance,
+                1 => sinks[0],
+                _ => new CompositeCommandMutationSink(sinks)
+            };
         });
         services.AddSingleton<PubSubSubscriberCache>();
         services.AddSingleton<CommandDispatcher>();

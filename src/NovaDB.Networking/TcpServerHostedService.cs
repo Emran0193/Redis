@@ -5,6 +5,7 @@ using System.Text;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using NovaDB.Chaos;
 using NovaDB.Configuration;
 using NovaDB.Protocol;
 
@@ -18,6 +19,7 @@ public sealed class TcpServerHostedService : BackgroundService
     private const int ListenBacklog = 512;
     private static readonly TimeSpan ShutdownDrainTimeout = TimeSpan.FromSeconds(30);
     private static readonly byte[] MaxClientsError = Encoding.UTF8.GetBytes("-ERR max number of clients reached\r\n");
+    private static readonly byte[] RateLimitedError = Encoding.UTF8.GetBytes("-ERR connection rate limit exceeded\r\n");
 
     private readonly IOptions<NovaDbOptions> _optionsAccessor;
     private readonly NovaDbOptions _options;
@@ -26,6 +28,8 @@ public sealed class TcpServerHostedService : BackgroundService
     private readonly ILogger<TcpServerHostedService> _logger;
     private readonly ILogger<ClientConnection> _connectionLogger;
     private readonly TlsCertificateProvider _tls;
+    private readonly ConnectionRateLimiter _rateLimiter;
+    private readonly IChaosFaultEngine? _chaos;
     private readonly Func<CancellationToken, Task>? _waitUntilReady;
     private readonly ConcurrentDictionary<Guid, Task> _connectionTasks = new();
 
@@ -41,7 +45,7 @@ public sealed class TcpServerHostedService : BackgroundService
         ILogger<TcpServerHostedService> logger,
         ILoggerFactory loggerFactory,
         TlsCertificateProvider tls)
-        : this(options, connectionManager, commandProcessor, logger, loggerFactory, tls, waitUntilReady: null)
+        : this(options, connectionManager, commandProcessor, logger, loggerFactory, tls, rateLimiter: null, chaos: null, waitUntilReady: null)
     {
     }
 
@@ -55,6 +59,23 @@ public sealed class TcpServerHostedService : BackgroundService
         ILogger<TcpServerHostedService> logger,
         ILoggerFactory loggerFactory,
         TlsCertificateProvider tls,
+        Func<CancellationToken, Task>? waitUntilReady)
+        : this(options, connectionManager, commandProcessor, logger, loggerFactory, tls, rateLimiter: null, chaos: null, waitUntilReady)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="TcpServerHostedService"/> class with rate limiting and chaos hooks.
+    /// </summary>
+    public TcpServerHostedService(
+        IOptions<NovaDbOptions> options,
+        ConnectionManager connectionManager,
+        ICommandProcessor commandProcessor,
+        ILogger<TcpServerHostedService> logger,
+        ILoggerFactory loggerFactory,
+        TlsCertificateProvider tls,
+        ConnectionRateLimiter? rateLimiter,
+        IChaosFaultEngine? chaos,
         Func<CancellationToken, Task>? waitUntilReady)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -71,6 +92,8 @@ public sealed class TcpServerHostedService : BackgroundService
         _logger = logger;
         _connectionLogger = loggerFactory.CreateLogger<ClientConnection>();
         _tls = tls;
+        _rateLimiter = rateLimiter ?? new ConnectionRateLimiter(options);
+        _chaos = chaos;
         _waitUntilReady = waitUntilReady;
     }
 
@@ -155,10 +178,15 @@ public sealed class TcpServerHostedService : BackgroundService
                     break;
                 }
 
+                if (!_rateLimiter.TryAcquire())
+                {
+                    _ = RejectConnectionAsync(acceptedSocket, RateLimitedError, CancellationToken.None);
+                    continue;
+                }
+
                 if (!_connectionManager.TryAcquire())
                 {
-                    // Do not block the accept loop on a slow rejected peer.
-                    _ = RejectConnectionAsync(acceptedSocket, CancellationToken.None);
+                    _ = RejectConnectionAsync(acceptedSocket, MaxClientsError, CancellationToken.None);
                     continue;
                 }
 
@@ -168,7 +196,8 @@ public sealed class TcpServerHostedService : BackgroundService
                     _optionsAccessor,
                     _connectionLogger,
                     stoppingToken,
-                    _tls);
+                    _tls,
+                    _chaos);
 
                 var id = Guid.NewGuid();
                 var connectionTask = HandleConnectionAsync(connection, id, stoppingToken);
@@ -201,11 +230,11 @@ public sealed class TcpServerHostedService : BackgroundService
         }
     }
 
-    private static async Task RejectConnectionAsync(Socket socket, CancellationToken cancellationToken)
+    private static async Task RejectConnectionAsync(Socket socket, byte[] error, CancellationToken cancellationToken)
     {
         try
         {
-            await socket.SendAsync(MaxClientsError, SocketFlags.None, cancellationToken).ConfigureAwait(false);
+            await socket.SendAsync(error, SocketFlags.None, cancellationToken).ConfigureAwait(false);
         }
         catch
         {

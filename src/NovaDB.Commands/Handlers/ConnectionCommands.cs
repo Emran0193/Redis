@@ -94,6 +94,7 @@ public sealed class AuthCommandHandler : ICommandHandler
 
         _verifier.AuthenticateOrThrow(context.Connection.ConnectionId, password, context.Connection.RemoteAddress);
         context.Session.IsAuthenticated = true;
+        context.Session.Role = Security.CommandAuthorization.RoleAfterAuth();
         context.Connection.IsAuthenticated = true;
         _logger.LogDebug("Client {ConnectionId} authenticated", context.Connection.ConnectionId);
         return ValueTask.FromResult(RespValue.Ok);

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NovaDB.Commands.Persistence;
+using NovaDB.Commands.Security;
 using NovaDB.Configuration;
 using NovaDB.Core.Exceptions;
 using NovaDB.Monitoring;
@@ -45,6 +46,7 @@ public sealed class CommandDispatcher : ICommandExecutor
     private readonly ICommandMutationSink _mutationSink;
     private readonly IOptions<NovaDbOptions> _options;
     private readonly INovaDbMetrics _metrics;
+    private readonly CommandAuthorization _authorization;
     private readonly ILogger<CommandDispatcher> _logger;
 
     /// <summary>
@@ -55,18 +57,21 @@ public sealed class CommandDispatcher : ICommandExecutor
         ICommandMutationSink mutationSink,
         IOptions<NovaDbOptions> options,
         INovaDbMetrics metrics,
+        CommandAuthorization authorization,
         ILogger<CommandDispatcher> logger)
     {
         ArgumentNullException.ThrowIfNull(handlers);
         ArgumentNullException.ThrowIfNull(mutationSink);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(metrics);
+        ArgumentNullException.ThrowIfNull(authorization);
         ArgumentNullException.ThrowIfNull(logger);
 
         _handlers = handlers.ToDictionary(h => h.Name, StringComparer.Ordinal);
         _mutationSink = mutationSink;
         _options = options;
         _metrics = metrics;
+        _authorization = authorization;
         _logger = logger;
     }
 
@@ -85,6 +90,12 @@ public sealed class CommandDispatcher : ICommandExecutor
         ArgumentNullException.ThrowIfNull(context);
 
         var commandName = context.CommandName;
+        var isMutating = MutatingCommands.Contains(commandName);
+
+        if (!_authorization.IsAllowed(context.Session.Role, commandName, isMutating))
+        {
+            return RespValue.Error(new AuthenticationException("Authentication required.").ToRespError());
+        }
 
         if (_options.Value.AuthenticationRequired
             && !context.Session.IsAuthenticated
@@ -129,6 +140,14 @@ public sealed class CommandDispatcher : ICommandExecutor
             return RespValue.Error($"ERR unknown command '{commandName}'");
         }
 
+        if (_options.Value.ReadOnlyReplica
+            && recordMutation
+            && !context.IsReplay
+            && MutatingCommands.Contains(commandName))
+        {
+            return RespValue.Error("READONLY You can't write against a read only replica.");
+        }
+
         try
         {
             var started = Stopwatch.GetTimestamp();
@@ -148,8 +167,13 @@ public sealed class CommandDispatcher : ICommandExecutor
                 && !context.Session.InMulti)
             {
                 var record = AofCommandRewriter.ToDurableForm(commandName, context.Arguments);
+                var metadata = new CommandMutationMetadata(
+                    context.Session.ConnectionId,
+                    TransactionId: string.Empty,
+                    Version: 0,
+                    DedupeKey: null);
                 await _mutationSink
-                    .OnMutatingCommandAsync(record, context.CancellationToken)
+                    .OnMutatingCommandAsync(record, metadata, context.CancellationToken)
                     .ConfigureAwait(false);
             }
 

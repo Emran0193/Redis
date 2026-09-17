@@ -1,0 +1,51 @@
+@page "/diagnostics"
+@attribute [Authorize(Policy = AdminPolicies.ReadOnly)]
+@inject DiagnosticsService.DiagnosticsServiceClient DiagnosticsApi
+@inject NavigationManager Navigation
+@implements IAsyncDisposable
+
+<MudText Typo="Typo.h4" Class="mb-4">Memory Diagnostics</MudText>
+<MudButton Variant="Variant.Filled" OnClick="RefreshAsync" Class="mb-3">Refresh</MudButton>
+
+@if (_snap is not null)
+{
+    <MudSimpleTable Dense="true">
+        <tbody>
+            <tr><td>Heap size</td><td>@_snap.HeapSizeBytes</td></tr>
+            <tr><td>Fragmented</td><td>@_snap.FragmentedBytes</td></tr>
+            <tr><td>Total available</td><td>@_snap.TotalAvailableBytes</td></tr>
+            <tr><td>Memory load</td><td>@_snap.MemoryLoadBytes</td></tr>
+            <tr><td>Committed</td><td>@_snap.TotalCommittedBytes</td></tr>
+            <tr><td>Gen0 / Gen1 / Gen2</td><td>@_snap.Gen0Collections / @_snap.Gen1Collections / @_snap.Gen2Collections</td></tr>
+            <tr><td>LOH compact once</td><td>@_snap.CompactionModeLoh</td></tr>
+        </tbody>
+    </MudSimpleTable>
+    <MudText Typo="Typo.caption" Class="mt-2">@_snap.Note</MudText>
+}
+
+@code {
+    private MemoryDiagnostics? _snap;
+    private HubConnection? _hub;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshAsync();
+        _hub = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/hubs/live"))
+            .WithAutomaticReconnect()
+            .Build();
+        _hub.On("diagnostics", async () =>
+        {
+            await RefreshAsync();
+            await InvokeAsync(StateHasChanged);
+        });
+        try { await _hub.StartAsync(); } catch { /* optional live refresh */ }
+    }
+
+    private async Task RefreshAsync() => _snap = await DiagnosticsApi.GetMemoryDiagnosticsAsync(new Empty());
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hub is not null) await _hub.DisposeAsync();
+    }
+}

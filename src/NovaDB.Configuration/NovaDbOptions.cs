@@ -117,4 +117,40 @@ public sealed class NovaDbOptions
     /// Returns true when a password is configured.
     /// </summary>
     public bool AuthenticationRequired => !string.IsNullOrEmpty(Password);
+
+    /// <summary>
+    /// Gets or sets whether the durable command journal is enabled (foundation for replication / time-travel).
+    /// </summary>
+    public bool JournalEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets whether each journal append is flushed to disk immediately.
+    /// </summary>
+    public bool JournalFlushOnAppend { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether this process operates as a read-only replica (rejects mutating commands).
+    /// </summary>
+    public bool ReadOnlyReplica { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether chaos fault injection is allowed (must remain false outside Development).
+    /// </summary>
+    public bool ChaosEnabled { get; set; }
+
+    /// <summary>
+    /// Gets or sets the maximum new TCP connections accepted per second (0 = unlimited).
+    /// </summary>
+    public int ConnectionRateLimitPerSecond { get; set; } = 1_000;
+
+    /// <summary>
+    /// Gets or sets the maximum RESP payload size accepted on a single connection read window.
+    /// </summary>
+    public int MaxPayloadBytes { get; set; } = 32 * 1024 * 1024;
+
+    /// <summary>
+    /// Gets or sets whether mutating commands require AUTH even when <see cref="Password"/> is empty.
+    /// When false (default), empty password keeps backward-compatible open access.
+    /// </summary>
+    public bool RequireAuthForWrites { get; set; }
 }

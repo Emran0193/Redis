@@ -6,6 +6,7 @@ using System.Net.Sockets;
 using System.Security.Authentication;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using NovaDB.Chaos;
 using NovaDB.Configuration;
 using NovaDB.Core.Sessions;
 using NovaDB.Protocol;
@@ -24,6 +25,7 @@ public sealed class ClientConnection : IClientConnection, IAsyncDisposable
     private readonly ILogger<ClientConnection> _logger;
     private readonly NovaDbOptions _options;
     private readonly TlsCertificateProvider? _tls;
+    private readonly IChaosFaultEngine? _chaos;
     private readonly TimeSpan _idleTimeout;
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private readonly CancellationTokenSource _connectionLifetime = new();
@@ -47,7 +49,8 @@ public sealed class ClientConnection : IClientConnection, IAsyncDisposable
         IOptions<NovaDbOptions> options,
         ILogger<ClientConnection> logger,
         CancellationToken shutdownToken,
-        TlsCertificateProvider? tls = null)
+        TlsCertificateProvider? tls = null,
+        IChaosFaultEngine? chaos = null)
     {
         ArgumentNullException.ThrowIfNull(socket);
         ArgumentNullException.ThrowIfNull(commandProcessor);
@@ -59,6 +62,7 @@ public sealed class ClientConnection : IClientConnection, IAsyncDisposable
         _logger = logger;
         _options = options.Value;
         _tls = tls;
+        _chaos = chaos;
         _idleTimeout = _options.IdleTimeout;
 
         ConnectionId = Interlocked.Increment(ref s_nextConnectionId).ToString(CultureInfo.InvariantCulture);
@@ -178,6 +182,11 @@ public sealed class ClientConnection : IClientConnection, IAsyncDisposable
                 ReadResult readResult;
                 try
                 {
+                    if (_chaos is not null)
+                    {
+                        await _chaos.BeforeNetworkReadAsync(readCts.Token).ConfigureAwait(false);
+                    }
+
                     readResult = await reader.ReadAsync(readCts.Token).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) when (!token.IsCancellationRequested)
@@ -370,6 +379,11 @@ public sealed class ClientConnection : IClientConnection, IAsyncDisposable
         await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            if (_chaos is not null)
+            {
+                await _chaos.BeforeNetworkWriteAsync(cancellationToken).ConfigureAwait(false);
+            }
+
             RespWriter.Write(_writer, response);
             var flushResult = await _writer.FlushAsync(cancellationToken).ConfigureAwait(false);
 

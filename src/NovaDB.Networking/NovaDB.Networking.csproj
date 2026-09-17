@@ -5,6 +5,7 @@
     <ProjectReference Include="..\NovaDB.Protocol\NovaDB.Protocol.csproj" />
     <ProjectReference Include="..\NovaDB.Configuration\NovaDB.Configuration.csproj" />
     <ProjectReference Include="..\NovaDB.Monitoring\NovaDB.Monitoring.csproj" />
+    <ProjectReference Include="..\NovaDB.Chaos\NovaDB.Chaos.csproj" />
   </ItemGroup>
 
   <ItemGroup>

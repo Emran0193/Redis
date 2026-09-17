@@ -61,6 +61,7 @@ public sealed class HelloCommandHandler : ICommandHandler
                 i += 2;
                 _verifier.AuthenticateOrThrow(context.Connection.ConnectionId, password, context.Connection.RemoteAddress);
                 context.Session.IsAuthenticated = true;
+                context.Session.Role = Security.CommandAuthorization.RoleAfterAuth();
                 context.Connection.IsAuthenticated = true;
             }
             else if (option == "SETNAME")
@@ -120,6 +121,7 @@ public sealed class ConfigCommandHandler : ICommandHandler
     private readonly IOptions<NovaDbOptions> _options;
     private readonly MemoryStorageEngine _storage;
     private readonly ConfigurableEvictionPolicy _eviction;
+    private readonly Security.IAuditTrail? _audit;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ConfigCommandHandler"/> class.
@@ -127,11 +129,13 @@ public sealed class ConfigCommandHandler : ICommandHandler
     public ConfigCommandHandler(
         IOptions<NovaDbOptions> options,
         MemoryStorageEngine storage,
-        ConfigurableEvictionPolicy eviction)
+        ConfigurableEvictionPolicy eviction,
+        Security.IAuditTrail? audit = null)
     {
         _options = options;
         _storage = storage;
         _eviction = eviction;
+        _audit = audit;
     }
 
     /// <inheritdoc />
@@ -187,6 +191,7 @@ public sealed class ConfigCommandHandler : ICommandHandler
 
                     _storage.SetMemoryLimitBytes(limit);
                     _options.Value.MemoryLimitBytes = limit;
+                    _audit?.Record(context.Session.ConnectionId, "CONFIG SET", $"maxmemory={limit}");
                     return ValueTask.FromResult(RespValue.Ok);
 
                 case "maxmemory-policy":
@@ -198,6 +203,7 @@ public sealed class ConfigCommandHandler : ICommandHandler
 
                     _eviction.Replace(value);
                     _options.Value.EvictionPolicy = value;
+                    _audit?.Record(context.Session.ConnectionId, "CONFIG SET", $"maxmemory-policy={value}");
                     return ValueTask.FromResult(RespValue.Ok);
 
                 default:

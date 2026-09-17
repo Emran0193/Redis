@@ -263,11 +263,7 @@ public sealed class HincrbyCommandHandler : ICommandHandler
                 long current = 0;
                 if (hash.TryGetValue(state.Field, out var existing))
                 {
-                    if (!long.TryParse(
-                            System.Text.Encoding.UTF8.GetString(existing),
-                            System.Globalization.NumberStyles.Integer,
-                            System.Globalization.CultureInfo.InvariantCulture,
-                            out current))
+                    if (!System.Buffers.Text.Utf8Parser.TryParse(existing, out current, out _))
                     {
                         throw new Core.Exceptions.NovaDbCommandException(
                             "hash value is not an integer");

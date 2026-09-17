@@ -184,6 +184,10 @@ public sealed class LiveTelemetryFeeder : BackgroundService
                 await _hub.Clients.All.SendAsync("health", liveHealth, stoppingToken).ConfigureAwait(false);
                 await _hub.Clients.All.SendAsync("clients", liveClients, stoppingToken).ConfigureAwait(false);
 
+                var diagnostics = scope.ServiceProvider.GetRequiredService<DiagnosticsService.DiagnosticsServiceClient>();
+                var memory = await diagnostics.GetMemoryDiagnosticsAsync(new Empty(), cancellationToken: stoppingToken);
+                await _hub.Clients.All.SendAsync("diagnostics", memory, stoppingToken).ConfigureAwait(false);
+
                 _logs.Add(LogLevel.Debug, $"telemetry tick keys={snapshot.KeyCount} clients={snapshot.ConnectedClients}");
             }
             catch (Exception ex) when (ex is not OperationCanceledException)

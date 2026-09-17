@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+using System.Text;
+
 namespace NovaDB.Admin.Auth;
 
 /// <summary>Built-in Admin role names.</summary>
@@ -56,9 +59,21 @@ public static class AdminCredentialStore
             var expected = Environment.GetEnvironmentVariable(envKey)
                 ?? config[configKey]
                 ?? "changeme";
-            return string.Equals(password, expected, StringComparison.Ordinal) ? role : null;
+            return FixedTimeEquals(password, expected) ? role : null;
         }
 
         return null;
+    }
+
+    private static bool FixedTimeEquals(string left, string right)
+    {
+        var a = Encoding.UTF8.GetBytes(left);
+        var b = Encoding.UTF8.GetBytes(right);
+        var max = Math.Max(a.Length, b.Length);
+        var ap = new byte[max];
+        var bp = new byte[max];
+        a.CopyTo(ap, 0);
+        b.CopyTo(bp, 0);
+        return a.Length == b.Length && CryptographicOperations.FixedTimeEquals(ap, bp);
     }
 }

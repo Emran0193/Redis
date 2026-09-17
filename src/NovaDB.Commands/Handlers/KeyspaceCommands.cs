@@ -31,9 +31,14 @@ public sealed class DbsizeCommandHandler : ICommandHandler
 public sealed class FlushdbCommandHandler : ICommandHandler
 {
     private readonly IStorageEngine _storage;
+    private readonly Security.IAuditTrail? _audit;
 
     /// <summary>Initializes a new instance of the <see cref="FlushdbCommandHandler"/> class.</summary>
-    public FlushdbCommandHandler(IStorageEngine storage) => _storage = storage;
+    public FlushdbCommandHandler(IStorageEngine storage, Security.IAuditTrail? audit = null)
+    {
+        _storage = storage;
+        _audit = audit;
+    }
 
     /// <inheritdoc />
     public string Name => "FLUSHDB";
@@ -42,6 +47,7 @@ public sealed class FlushdbCommandHandler : ICommandHandler
     public async ValueTask<RespValue> ExecuteAsync(CommandContext context)
     {
         await FlushAsync(_storage, context.CancellationToken).ConfigureAwait(false);
+        _audit?.Record(context.Session.ConnectionId, "FLUSHDB", "all keys");
         return RespValue.Ok;
     }
 
@@ -64,9 +70,14 @@ public sealed class FlushdbCommandHandler : ICommandHandler
 public sealed class FlushallCommandHandler : ICommandHandler
 {
     private readonly IStorageEngine _storage;
+    private readonly Security.IAuditTrail? _audit;
 
     /// <summary>Initializes a new instance of the <see cref="FlushallCommandHandler"/> class.</summary>
-    public FlushallCommandHandler(IStorageEngine storage) => _storage = storage;
+    public FlushallCommandHandler(IStorageEngine storage, Security.IAuditTrail? audit = null)
+    {
+        _storage = storage;
+        _audit = audit;
+    }
 
     /// <inheritdoc />
     public string Name => "FLUSHALL";
@@ -75,6 +86,7 @@ public sealed class FlushallCommandHandler : ICommandHandler
     public async ValueTask<RespValue> ExecuteAsync(CommandContext context)
     {
         await FlushdbCommandHandler.FlushAsync(_storage, context.CancellationToken).ConfigureAwait(false);
+        _audit?.Record(context.Session.ConnectionId, "FLUSHALL", "all keys");
         return RespValue.Ok;
     }
 }
